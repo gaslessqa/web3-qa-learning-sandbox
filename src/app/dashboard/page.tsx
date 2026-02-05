@@ -94,9 +94,12 @@ export default function DashboardPage() {
               </p>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-400">0/3 lessons</span>
-                <button className="px-4 py-2 bg-green-600 rounded-lg text-sm hover:bg-green-700 transition">
+                <Link
+                  href="/modules/web3-qa-fundamentals"
+                  className="px-4 py-2 bg-green-600 rounded-lg text-sm hover:bg-green-700 transition"
+                >
                   Start
-                </button>
+                </Link>
               </div>
             </div>
 

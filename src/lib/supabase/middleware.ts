@@ -42,7 +42,8 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Define protected routes that require authentication
-  const protectedRoutes = ["/dashboard", "/profile", "/lessons"];
+  // Note: /modules and /lessons are public (content is viewable), only progress tracking requires auth
+  const protectedRoutes = ["/dashboard", "/profile"];
   const isProtectedRoute = protectedRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
   );
