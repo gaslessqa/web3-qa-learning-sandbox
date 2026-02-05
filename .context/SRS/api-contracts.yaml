@@ -1,0 +1,578 @@
+openapi: 3.0.3
+info:
+  title: Web3 QA Learning Hub API
+  version: 1.0.0
+  description: |
+    API contracts for the Web3 QA Learning Hub platform.
+
+    **Note:** The MVP is primarily a static site with client-side Web3 interactions.
+    API routes are minimal and used only for server-side utilities that cannot
+    run in the browser.
+  contact:
+    name: Web3 QA Learning Hub Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3000/api
+    description: Local development
+  - url: https://staging.web3qa.dev/api
+    description: Staging environment
+  - url: https://web3qa.dev/api
+    description: Production
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Content
+    description: Content and search endpoints
+  - name: Contracts
+    description: Smart contract utilities
+
+paths:
+  # ============================================
+  # Health Check
+  # ============================================
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check endpoint
+      description: Returns the health status of the API
+      operationId: getHealth
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ok
+                timestamp: '2024-01-15T10:30:00Z'
+                version: '1.0.0'
+
+  # ============================================
+  # Content & Search
+  # ============================================
+  /search:
+    get:
+      tags:
+        - Content
+      summary: Search documentation content
+      description: |
+        Full-text search across all documentation content.
+        Returns matching pages with snippets.
+      operationId: searchContent
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Search query string (min 2 characters)
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+          example: wallet connection
+        - name: level
+          in: query
+          required: false
+          description: Filter by content level
+          schema:
+            type: string
+            enum:
+              - beginner
+              - intermediate
+              - expert
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of results
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          description: Invalid search query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: INVALID_QUERY
+                  message: Search query must be at least 2 characters
+
+  /content/navigation:
+    get:
+      tags:
+        - Content
+      summary: Get documentation navigation structure
+      description: |
+        Returns the complete navigation tree for documentation,
+        organized by level and module.
+      operationId: getNavigation
+      responses:
+        '200':
+          description: Navigation structure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NavigationResponse'
+
+  # ============================================
+  # Smart Contract Utilities
+  # ============================================
+  /contracts/abi:
+    get:
+      tags:
+        - Contracts
+      summary: Get ABI for practice contracts
+      description: |
+        Returns the ABI for pre-deployed practice contracts.
+        Used to interact with contracts in the labs.
+      operationId: getContractABI
+      parameters:
+        - name: contract
+          in: query
+          required: true
+          description: Contract identifier
+          schema:
+            type: string
+            enum:
+              - SimpleStorage
+              - Counter
+              - AccessControl
+              - EventEmitter
+              - PayableDemo
+          example: SimpleStorage
+      responses:
+        '200':
+          description: Contract ABI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContractABIResponse'
+        '404':
+          description: Contract not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: CONTRACT_NOT_FOUND
+                  message: Contract 'Unknown' not found
+
+  /contracts/addresses:
+    get:
+      tags:
+        - Contracts
+      summary: Get deployed contract addresses
+      description: |
+        Returns the addresses of pre-deployed practice contracts
+        for a specific network.
+      operationId: getContractAddresses
+      parameters:
+        - name: chainId
+          in: query
+          required: true
+          description: Chain ID to get addresses for
+          schema:
+            type: integer
+            enum:
+              - 31337  # Hardhat local
+              - 11155111  # Sepolia
+          example: 31337
+      responses:
+        '200':
+          description: Contract addresses
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContractAddressesResponse'
+        '400':
+          description: Unsupported chain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: UNSUPPORTED_CHAIN
+                  message: Chain ID 1 is not supported for practice contracts
+
+  /contracts/verify-transaction:
+    post:
+      tags:
+        - Contracts
+      summary: Verify transaction for lab exercise
+      description: |
+        Verifies that a transaction meets the requirements for
+        a specific lab exercise. Used for progress validation (future).
+      operationId: verifyTransaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyTransactionRequest'
+            example:
+              txHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+              chainId: 31337
+              labId: 'intermediate-counter-increment'
+      responses:
+        '200':
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyTransactionResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    # ============================================
+    # Common Schemas
+    # ============================================
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Error code for programmatic handling
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              description: Human-readable error message
+              example: Invalid input provided
+
+    # ============================================
+    # Health Schemas
+    # ============================================
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+            - degraded
+            - down
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+          example: '2024-01-15T10:30:00Z'
+        version:
+          type: string
+          example: '1.0.0'
+
+    # ============================================
+    # Content Schemas
+    # ============================================
+    SearchResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - query
+            - results
+            - total
+          properties:
+            query:
+              type: string
+              example: wallet connection
+            total:
+              type: integer
+              example: 5
+            results:
+              type: array
+              items:
+                $ref: '#/components/schemas/SearchResult'
+
+    SearchResult:
+      type: object
+      required:
+        - slug
+        - title
+        - level
+        - snippet
+        - score
+      properties:
+        slug:
+          type: string
+          description: URL path to the content
+          example: /docs/beginner/wallet-testing
+        title:
+          type: string
+          example: Introduction to Wallet Testing
+        level:
+          type: string
+          enum:
+            - beginner
+            - intermediate
+            - expert
+          example: beginner
+        snippet:
+          type: string
+          description: Text snippet with search term highlighted
+          example: Learn how to test <mark>wallet connection</mark> flows...
+        score:
+          type: number
+          format: float
+          description: Relevance score (0-1)
+          example: 0.95
+
+    NavigationResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - levels
+          properties:
+            levels:
+              type: array
+              items:
+                $ref: '#/components/schemas/NavigationLevel'
+
+    NavigationLevel:
+      type: object
+      required:
+        - id
+        - label
+        - modules
+      properties:
+        id:
+          type: string
+          example: beginner
+        label:
+          type: string
+          example: Beginner
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/NavigationModule'
+
+    NavigationModule:
+      type: object
+      required:
+        - id
+        - title
+        - pages
+      properties:
+        id:
+          type: string
+          example: wallet-testing
+        title:
+          type: string
+          example: Wallet Testing
+        pages:
+          type: array
+          items:
+            $ref: '#/components/schemas/NavigationPage'
+
+    NavigationPage:
+      type: object
+      required:
+        - slug
+        - title
+        - order
+      properties:
+        slug:
+          type: string
+          example: /docs/beginner/wallet-testing/connect
+        title:
+          type: string
+          example: Connect Wallet
+        order:
+          type: integer
+          example: 1
+
+    # ============================================
+    # Contract Schemas
+    # ============================================
+    ContractABIResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - name
+            - abi
+          properties:
+            name:
+              type: string
+              example: SimpleStorage
+            abi:
+              type: array
+              description: Contract ABI array
+              items:
+                type: object
+
+    ContractAddressesResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - chainId
+            - contracts
+          properties:
+            chainId:
+              type: integer
+              example: 31337
+            chainName:
+              type: string
+              example: Hardhat Local
+            contracts:
+              type: array
+              items:
+                $ref: '#/components/schemas/DeployedContract'
+
+    DeployedContract:
+      type: object
+      required:
+        - name
+        - address
+      properties:
+        name:
+          type: string
+          example: SimpleStorage
+        address:
+          type: string
+          pattern: '^0x[a-fA-F0-9]{40}$'
+          example: '0x5FbDB2315678afecb367f032d93F642f64180aa3'
+        deployedAt:
+          type: string
+          format: date-time
+          example: '2024-01-15T10:00:00Z'
+
+    VerifyTransactionRequest:
+      type: object
+      required:
+        - txHash
+        - chainId
+        - labId
+      properties:
+        txHash:
+          type: string
+          pattern: '^0x[a-fA-F0-9]{64}$'
+          description: Transaction hash to verify
+          example: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+        chainId:
+          type: integer
+          description: Chain ID where transaction was executed
+          example: 31337
+        labId:
+          type: string
+          description: Lab exercise identifier
+          example: intermediate-counter-increment
+
+    VerifyTransactionResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - verified
+            - labId
+          properties:
+            verified:
+              type: boolean
+              description: Whether the transaction meets lab requirements
+              example: true
+            labId:
+              type: string
+              example: intermediate-counter-increment
+            details:
+              type: object
+              properties:
+                contractCalled:
+                  type: string
+                  example: Counter
+                functionCalled:
+                  type: string
+                  example: increment
+                eventsEmitted:
+                  type: array
+                  items:
+                    type: string
+                  example:
+                    - ValueChanged
+                gasUsed:
+                  type: integer
+                  example: 21432
+            feedback:
+              type: string
+              description: Human-readable feedback for the learner
+              example: Transaction verified. Counter was successfully incremented.
