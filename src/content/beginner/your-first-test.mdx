@@ -1,0 +1,242 @@
+# Writing Your First Test
+
+Time to get hands-on! In this lesson, you'll write your first smart contract test using Foundry.
+
+## Prerequisites
+
+Make sure you have Foundry installed:
+
+```bash
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
+
+# Verify installation
+forge --version
+```
+
+## Step 1: Create the Project
+
+```bash
+# Create a new Foundry project
+forge init my-first-test
+cd my-first-test
+```
+
+## Step 2: Write a Simple Contract
+
+Create a simple `Counter.sol` contract:
+
+```solidity
+// src/Counter.sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+contract Counter {
+    uint256 public count;
+    address public owner;
+
+    event CountChanged(uint256 newCount);
+
+    constructor() {
+        owner = msg.sender;
+        count = 0;
+    }
+
+    function increment() public {
+        count += 1;
+        emit CountChanged(count);
+    }
+
+    function decrement() public {
+        require(count > 0, "Count cannot go below zero");
+        count -= 1;
+        emit CountChanged(count);
+    }
+
+    function reset() public {
+        require(msg.sender == owner, "Only owner can reset");
+        count = 0;
+        emit CountChanged(count);
+    }
+}
+```
+
+## Step 3: Write Your First Test
+
+Now write tests for the contract:
+
+```solidity
+// test/Counter.t.sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+import "forge-std/Test.sol";
+import "../src/Counter.sol";
+
+contract CounterTest is Test {
+    Counter public counter;
+    address public owner;
+    address public user;
+
+    // Setup runs before each test
+    function setUp() public {
+        owner = address(this);
+        user = makeAddr("user");
+        counter = new Counter();
+    }
+
+    // Test: Initial state
+    function test_InitialCount() public view {
+        assertEq(counter.count(), 0);
+    }
+
+    function test_OwnerIsDeployer() public view {
+        assertEq(counter.owner(), owner);
+    }
+
+    // Test: Increment
+    function test_Increment() public {
+        counter.increment();
+        assertEq(counter.count(), 1);
+    }
+
+    function test_MultipleIncrements() public {
+        counter.increment();
+        counter.increment();
+        counter.increment();
+        assertEq(counter.count(), 3);
+    }
+
+    // Test: Decrement
+    function test_Decrement() public {
+        counter.increment();
+        counter.decrement();
+        assertEq(counter.count(), 0);
+    }
+
+    function test_RevertWhen_DecrementBelowZero() public {
+        vm.expectRevert("Count cannot go below zero");
+        counter.decrement();
+    }
+
+    // Test: Reset
+    function test_Reset() public {
+        counter.increment();
+        counter.increment();
+        counter.reset();
+        assertEq(counter.count(), 0);
+    }
+
+    function test_RevertWhen_NonOwnerResets() public {
+        counter.increment();
+
+        // Switch to non-owner
+        vm.prank(user);
+        vm.expectRevert("Only owner can reset");
+        counter.reset();
+    }
+
+    // Test: Events
+    function test_EmitsEvent_OnIncrement() public {
+        vm.expectEmit(true, true, true, true);
+        emit Counter.CountChanged(1);
+        counter.increment();
+    }
+
+    // Fuzz Test: Random increments
+    function testFuzz_Increment(uint8 times) public {
+        for (uint8 i = 0; i < times; i++) {
+            counter.increment();
+        }
+        assertEq(counter.count(), times);
+    }
+}
+```
+
+## Step 4: Run the Tests
+
+```bash
+# Run all tests
+forge test
+
+# Run with verbosity (see more details)
+forge test -vv
+
+# Run specific test
+forge test --match-test test_Increment
+
+# Run with gas report
+forge test --gas-report
+```
+
+**Expected Output:**
+```
+Running 10 tests for test/Counter.t.sol:CounterTest
+[PASS] test_Decrement() (gas: 32451)
+[PASS] test_EmitsEvent_OnIncrement() (gas: 31245)
+[PASS] test_Increment() (gas: 30892)
+[PASS] test_InitialCount() (gas: 7623)
+[PASS] test_MultipleIncrements() (gas: 51234)
+[PASS] test_OwnerIsDeployer() (gas: 7891)
+[PASS] test_Reset() (gas: 35678)
+[PASS] test_RevertWhen_DecrementBelowZero() (gas: 10523)
+[PASS] test_RevertWhen_NonOwnerResets() (gas: 15234)
+[PASS] testFuzz_Increment(uint8) (runs: 256, avg gas: 892345)
+```
+
+## Understanding Test Patterns
+
+### Naming Conventions
+
+| Pattern | Meaning |
+|---------|---------|
+| `test_` | Standard test |
+| `testFuzz_` | Fuzz test |
+| `test_RevertWhen_` | Expected to revert |
+
+### Common Cheatcodes
+
+```solidity
+// Change msg.sender for next call
+vm.prank(user);
+
+// Change msg.sender until vm.stopPrank()
+vm.startPrank(user);
+// ... calls as user ...
+vm.stopPrank();
+
+// Expect a revert
+vm.expectRevert("Error message");
+
+// Expect an event
+vm.expectEmit(true, true, true, true);
+emit ExpectedEvent(args);
+
+// Warp time
+vm.warp(block.timestamp + 1 days);
+
+// Set block number
+vm.roll(block.number + 100);
+```
+
+## Challenge: Add More Tests
+
+Try adding these tests yourself:
+
+1. Test that `increment` can be called by anyone
+2. Test the `CountChanged` event includes correct value
+3. Add a fuzz test for `decrement` after multiple increments
+
+## Summary
+
+Congratulations! You've written your first smart contract tests. You learned:
+
+- How to set up a Foundry project
+- Writing basic unit tests
+- Testing reverts and events
+- Using fuzz testing
+- Common Foundry cheatcodes
+
+## Next Module
+
+Ready to level up? The **Smart Contract Testing** module dives deeper into advanced testing techniques!

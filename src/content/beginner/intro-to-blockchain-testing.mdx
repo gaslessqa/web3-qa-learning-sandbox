@@ -1,0 +1,90 @@
+# Introduction to Blockchain Testing
+
+Welcome to your first lesson in Web3 QA! In this lesson, you'll learn why blockchain applications require specialized testing approaches.
+
+## Why is Blockchain Testing Different?
+
+Traditional web applications operate on centralized servers where bugs can be fixed with a simple deployment. Blockchain applications are fundamentally different:
+
+### 1. Immutability
+Once a smart contract is deployed, **it cannot be changed**. Any bug in the code becomes permanent unless you've built in upgrade mechanisms.
+
+```solidity
+// This bug will live forever on the blockchain
+function withdraw(uint amount) public {
+    // BUG: Should check balance first!
+    payable(msg.sender).transfer(amount);
+    balances[msg.sender] -= amount;
+}
+```
+
+### 2. Financial Risk
+Smart contracts often handle real money. A single vulnerability can lead to millions of dollars in losses.
+
+> **Real Example**: The DAO hack in 2016 resulted in $60 million stolen due to a reentrancy vulnerability.
+
+### 3. Gas Costs
+Every operation costs money (gas). Inefficient code means users pay more for transactions.
+
+### 4. Deterministic Execution
+Smart contracts must produce the same output given the same input, every time, on every node in the network.
+
+## Key Testing Areas
+
+When testing blockchain applications, focus on these areas:
+
+| Area | What to Test |
+|------|--------------|
+| **Security** | Reentrancy, overflow, access control |
+| **Functionality** | Business logic, state transitions |
+| **Gas Efficiency** | Optimization, batch operations |
+| **Edge Cases** | Boundary conditions, empty states |
+| **Integration** | Contract interactions, external calls |
+
+## Testing Tools Overview
+
+Here are the main tools you'll use:
+
+- **Foundry** - Fast, Rust-based testing framework
+- **Hardhat** - JavaScript/TypeScript testing environment
+- **Slither** - Static analysis for security
+- **Echidna** - Fuzzing tool for finding edge cases
+
+## Your First Challenge
+
+Think about a simple token transfer function:
+
+```solidity
+function transfer(address to, uint256 amount) public returns (bool) {
+    require(balanceOf[msg.sender] >= amount, "Insufficient balance");
+    balanceOf[msg.sender] -= amount;
+    balanceOf[to] += amount;
+    return true;
+}
+```
+
+**Question**: What edge cases should you test?
+
+<details>
+<summary>Click to see answer</summary>
+
+1. Transfer to zero address (0x0)
+2. Transfer amount of 0
+3. Transfer to self
+4. Transfer more than balance
+5. Transfer exactly full balance
+6. Multiple consecutive transfers
+
+</details>
+
+## Summary
+
+In this lesson, you learned:
+
+- Why blockchain testing is different from traditional testing
+- The key areas to focus on when testing
+- The main tools available for blockchain testing
+
+## Next Steps
+
+In the next lesson, we'll dive deeper into testing tools and set up your first testing environment.

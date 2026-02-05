@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
 import { getClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
+import { getContent } from "@/lib/content";
 import type { Database } from "@/types/supabase";
 
 type Lesson = Database["public"]["Tables"]["lessons"]["Row"];
@@ -12,12 +14,12 @@ type Module = Database["public"]["Tables"]["modules"]["Row"];
 
 export default function LessonPage() {
   const params = useParams();
-  const router = useRouter();
   const slug = params.slug as string;
   const { user } = useAuth();
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [module, setModule] = useState<Module | null>(null);
+  const [content, setContent] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -42,6 +44,10 @@ export default function LessonPage() {
 
       setLesson(lessonData);
       setModule(lessonData.module as Module);
+
+      // Fetch content
+      const lessonContent = await getContent(lessonData.content_path);
+      setContent(lessonContent);
 
       // Check if user has completed this lesson
       if (user) {
@@ -139,33 +145,40 @@ export default function LessonPage() {
 
       {/* Lesson Content */}
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-4">{lesson.title}</h1>
-          <p className="text-gray-400 text-lg">{lesson.description}</p>
-        </div>
-
-        {/* Placeholder Content */}
+        {/* Rendered Markdown Content */}
         <div className="bg-gray-800 rounded-xl p-8 mb-8">
-          <div className="prose prose-invert max-w-none">
-            <h2 className="text-xl font-semibold mb-4">Lesson Content</h2>
-            <p className="text-gray-300 mb-4">
-              This is a placeholder for the lesson content. In a full implementation,
-              the content would be loaded from MDX files at: <code className="bg-gray-700 px-2 py-1 rounded">{lesson.content_path}</code>
-            </p>
-
-            <div className="bg-gray-700/50 rounded-lg p-6 my-6">
-              <h3 className="text-lg font-semibold mb-2">What you&apos;ll learn:</h3>
-              <ul className="list-disc list-inside text-gray-300 space-y-2">
-                <li>Core concepts of {module.title.toLowerCase()}</li>
-                <li>Practical examples and exercises</li>
-                <li>Best practices for Web3 QA</li>
-              </ul>
-            </div>
-
-            <p className="text-gray-300">
-              Complete this lesson to track your progress and unlock achievements!
-            </p>
-          </div>
+          <article className="prose prose-invert prose-lg max-w-none
+            prose-headings:text-white
+            prose-h1:text-3xl prose-h1:font-bold prose-h1:mb-6
+            prose-h2:text-2xl prose-h2:font-semibold prose-h2:mt-8 prose-h2:mb-4
+            prose-h3:text-xl prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-3
+            prose-p:text-gray-300 prose-p:leading-relaxed
+            prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline
+            prose-strong:text-white
+            prose-code:bg-gray-700 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-green-400 prose-code:before:content-none prose-code:after:content-none
+            prose-pre:bg-gray-900 prose-pre:border prose-pre:border-gray-700
+            prose-blockquote:border-l-blue-500 prose-blockquote:bg-gray-700/50 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:rounded-r
+            prose-ul:text-gray-300
+            prose-ol:text-gray-300
+            prose-li:marker:text-gray-500
+            prose-table:border-collapse
+            prose-th:bg-gray-700 prose-th:px-4 prose-th:py-2 prose-th:text-left
+            prose-td:border prose-td:border-gray-700 prose-td:px-4 prose-td:py-2
+          ">
+            {content ? (
+              <ReactMarkdown>{content}</ReactMarkdown>
+            ) : (
+              <div>
+                <h1>{lesson.title}</h1>
+                <p className="text-gray-400">{lesson.description}</p>
+                <div className="bg-gray-700/50 rounded-lg p-6 my-6">
+                  <p className="text-gray-300">
+                    Content for this lesson is coming soon. Check back later!
+                  </p>
+                </div>
+              </div>
+            )}
+          </article>
         </div>
 
         {/* Completion Section */}
