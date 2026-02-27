@@ -1,208 +1,157 @@
-"use client";
+// src/contexts/auth-context.tsx
+'use client';
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-  type ReactNode,
-} from "react";
-import { getClient } from "@/lib/supabase/client";
-import type { User, Session, AuthError } from "@supabase/supabase-js";
-import type { Database } from "@/types/supabase";
+import { getClient } from '@/lib/supabase/client';
+import type { Database } from '@/types/supabase';
+import type { AuthError, User } from '@supabase/supabase-js';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 
-interface AuthContextType {
+type AuthResult = { error: AuthError | null };
+
+type AuthContextValue = {
   user: User | null;
-  profile: Profile | null;
-  session: Session | null;
+  profile: ProfileRow | null;
   isLoading: boolean;
-  signUp: (
-    email: string,
-    password: string,
-    metadata?: { display_name?: string }
-  ) => Promise<{ error: AuthError | null }>;
-  signIn: (
-    email: string,
-    password: string
-  ) => Promise<{ error: AuthError | null }>;
-  signInWithOAuth: (
-    provider: "google" | "github"
-  ) => Promise<{ error: AuthError | null }>;
-  signOut: () => Promise<{ error: AuthError | null }>;
-  updateProfile: (
-    updates: Partial<Profile>
-  ) => Promise<{ error: Error | null }>;
-  refreshProfile: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<AuthResult>;
+  signUp: (email: string, password: string, options?: { display_name?: string }) => Promise<AuthResult>;
+  signInWithOAuth: (provider: 'google' | 'github') => Promise<AuthResult>;
+  signOut: () => Promise<void>;
+};
+
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+function isAbortError(err: unknown) {
+  const e = err as { name?: string; message?: string };
+  return e?.name === 'AbortError' || e?.message?.includes('signal is aborted');
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const supabase = getClient();
+  // Prevent double initialization in React Strict Mode (dev)
+  const didInitRef = useRef(false);
 
-  // Fetch user profile from database
-  const fetchProfile = useCallback(
-    async (userId: string) => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-
-      if (error) {
-        console.error("Error fetching profile:", error);
-        return null;
-      }
-
-      return data;
-    },
-    [supabase]
-  );
-
-  // Refresh profile data
-  const refreshProfile = useCallback(async () => {
-    if (user) {
-      const profileData = await fetchProfile(user.id);
-      setProfile(profileData);
-    }
-  }, [user, fetchProfile]);
-
-  // Initialize auth state
   useEffect(() => {
-    const initializeAuth = async () => {
+    // In dev Strict Mode, effects can run twice. Guard to run only once.
+    if (didInitRef.current) return;
+    didInitRef.current = true;
+
+    let cancelled = false;
+    const supabase = getClient();
+
+    async function loadProfile(userId: string) {
+      // Profile is optional; don't block auth if it fails.
+      const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+
+      return data ?? null;
+    }
+
+    async function init() {
       try {
-        const {
-          data: { session: currentSession },
-        } = await supabase.auth.getSession();
+        // 1) Read current session
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
 
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
+        const sessionUser = data.session?.user ?? null;
 
-        if (currentSession?.user) {
-          const profileData = await fetchProfile(currentSession.user.id);
-          setProfile(profileData);
+        if (!cancelled) setUser(sessionUser);
+
+        // 2) Fetch profile if logged in
+        if (sessionUser) {
+          const p = await loadProfile(sessionUser.id);
+          if (!cancelled) setProfile(p);
+        } else {
+          if (!cancelled) setProfile(null);
         }
-      } catch (error) {
-        console.error("Error initializing auth:", error);
+      } catch (e) {
+        // AbortError is common in dev/HMR due to auth lock cancellation.
+        // Ignore AbortError; log only unexpected errors.
+        if (!cancelled && !isAbortError(e)) {
+          console.error('Error initializing auth:', e);
+        }
+
+        if (!cancelled) {
+          setUser(null);
+          setProfile(null);
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
-    };
+    }
 
-    initializeAuth();
+    init();
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
+    // 3) Subscribe to auth changes
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const nextUser = session?.user ?? null;
+      setUser(nextUser);
 
-      if (event === "SIGNED_IN" && newSession?.user) {
-        const profileData = await fetchProfile(newSession.user.id);
-        setProfile(profileData);
-      } else if (event === "SIGNED_OUT") {
+      if (nextUser) {
+        try {
+          const p = await loadProfile(nextUser.id);
+          setProfile(p);
+        } catch {
+          setProfile(null);
+        }
+      } else {
         setProfile(null);
       }
     });
 
     return () => {
-      subscription.unsubscribe();
+      cancelled = true;
+      sub.subscription.unsubscribe();
     };
-  }, [supabase, fetchProfile]);
+  }, []);
 
-  // Sign up with email and password
-  const signUp = async (
-    email: string,
-    password: string,
-    metadata?: { display_name?: string }
-  ) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: metadata,
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      user,
+      profile,
+      isLoading,
+      signIn: async (email, password) => {
+        const supabase = getClient();
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        return { error };
       },
-    });
-
-    return { error };
-  };
-
-  // Sign in with email and password
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    return { error };
-  };
-
-  // Sign in with OAuth provider
-  const signInWithOAuth = async (provider: "google" | "github") => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+      signUp: async (email, password, options) => {
+        const supabase = getClient();
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { display_name: options?.display_name },
+          },
+        });
+        return { error };
       },
-    });
-
-    return { error };
-  };
-
-  // Sign out
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    return { error };
-  };
-
-  // Update user profile
-  const updateProfile = async (updates: Partial<Profile>) => {
-    if (!user) {
-      return { error: new Error("No user logged in") };
-    }
-
-    const { error } = await supabase
-      .from("profiles")
-      .update(updates)
-      .eq("id", user.id);
-
-    if (!error) {
-      await refreshProfile();
-    }
-
-    return { error };
-  };
-
-  const value: AuthContextType = {
-    user,
-    profile,
-    session,
-    isLoading,
-    signUp,
-    signIn,
-    signInWithOAuth,
-    signOut,
-    updateProfile,
-    refreshProfile,
-  };
+      signInWithOAuth: async (provider) => {
+        const supabase = getClient();
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
+        return { error };
+      },
+      signOut: async () => {
+        const supabase = getClient();
+        await supabase.auth.signOut();
+      },
+    }),
+    [user, profile, isLoading]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
 }

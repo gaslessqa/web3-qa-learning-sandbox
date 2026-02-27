@@ -1,0 +1,50 @@
+---
+title: 'Events & Logs 101 (QA Observability)'
+level: 'intermediate'
+order: 7
+module: 'events-and-observability'
+estimated_minutes: 30
+---
+
+<Callout type="success">
+  Events/logs are your strongest proof in Web3 QA. If the UI says “success” but no event exists
+  on-chain, you have a real bug—or at least a data-sync problem.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Use transaction logs/events to validate that on-chain actions happened as expected.
+
+<SectionTitle>Why Events Matter</SectionTitle>
+
+Smart contracts emit **events** to record important actions:
+
+- swaps executed
+- deposits/withdrawals
+- NFT minted/transferred
+- approvals set
+- positions created/closed
+
+Events are:
+
+- searchable in explorers
+- reliable evidence for QA
+- useful for debugging state sync issues
+
+<SectionTitle>QA Checklist</SectionTitle>
+<Checklist
+  items={[
+    'After a successful tx, you can find the expected event in the tx logs',
+    'Event parameters match the UI outcome (amounts, token addresses, user address)',
+    'If UI shows updated balances/positions, they match on-chain evidence',
+    'If events exist but UI doesn’t update, report as indexing/cache issue',
+    'If UI updates but events are missing, treat as a critical inconsistency',
+  ]}
+/>
+
+<SectionTitle>Manual Steps</SectionTitle>
+<Steps
+  items={[
+    "Perform an on-chain action in the dApp (tx must succeed)",
+    "Copy the tx hash and open it in a block explorer",
+    "Navigate to the Logs/Events section",
+    "Locate the expected event name (e.g., Trans

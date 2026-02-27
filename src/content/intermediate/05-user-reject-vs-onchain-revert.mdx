@@ -1,0 +1,66 @@
+---
+title: 'User Reject vs On-Chain Revert'
+level: 'intermediate'
+order: 5
+module: 'tx-lifecycle-reverts'
+estimated_minutes: 30
+---
+
+<Callout type="info">
+  Two failures can look identical to users (“it didn’t work”), but they are completely different:
+  (1) user rejects in wallet (no tx sent) vs (2) on-chain revert (tx sent, then fails).
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Differentiate wallet rejection from on-chain reverts and validate correct UI + evidence for both.
+
+<SectionTitle>What’s the Difference?</SectionTitle>
+
+- **User reject**: user cancels in the wallet prompt. No tx hash. Nothing is broadcast.
+- **On-chain revert**: tx is broadcast and gets a hash, but execution fails (reverts). Explorer shows failed tx.
+
+<SectionTitle>QA Checklist</SectionTitle>
+<Checklist
+  items={[
+    'User reject path shows a clear message and resets UI state immediately',
+    'User reject does not create a tx hash or explorer link',
+    'On-chain revert path shows failure state and keeps tx hash accessible',
+    'If revert reason is available, surface it (or show a friendly generic error)',
+    'No endless pending: revert transitions from pending → failed reliably',
+    'If UI shows a receipt/status badge, it matches explorer status',
+  ]}
+/>
+
+<SectionTitle>Manual Steps</SectionTitle>
+<Steps
+  items={[
+    'Trigger a write action (swap/stake/etc.)',
+    'Reject in wallet → verify there is no tx hash and UI recovers',
+    'Trigger again and submit the tx',
+    'Force a revert (e.g., insufficient allowance/balance, invalid params) if possible in your environment',
+    'Verify tx appears in explorer as failed and UI shows failure state with hash link',
+  ]}
+/>
+
+<SectionTitle>Common Revert Scenarios to Test</SectionTitle>
+
+- Insufficient balance
+- Insufficient allowance (ERC-20 approve missing)
+- Slippage too tight (swap)
+- Deadline expired
+- Access control (onlyOwner / role-based)
+- Paused contract
+
+<SectionTitle>Evidence to Capture</SectionTitle>
+
+- For reject: screenshot of “cancelled” UI state + console log (if any)
+- For revert: explorer link (failed tx) + decoded revert reason if shown
+- UI screenshot showing failed status + recovery action (retry / adjust params)
+
+<SectionTitle>Done When</SectionTitle>
+
+You can consistently demonstrate:
+
+- reject vs revert difference
+- correct UI messaging and recovery
+- on-chain proof for failed transactions

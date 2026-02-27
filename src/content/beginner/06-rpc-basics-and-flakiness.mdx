@@ -1,0 +1,75 @@
+---
+title: 'RPC Basics & Flakiness'
+level: 'beginner'
+order: 6
+module: 'web3-qa-fundamentals'
+estimated_minutes: 25
+---
+
+<Callout type="warning">
+  Most “random” dApp bugs are RPC problems: rate limits, timeouts, stale nodes, or inconsistent
+  responses. QA needs strategies to detect and document RPC flakiness.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Learn how RPC affects dApps and how to test and report RPC-related issues.
+
+<SectionTitle>RPC (In Plain English)</SectionTitle>
+
+- **RPC** is the “API gateway” your dApp uses to read blockchain state and broadcast transactions.
+- dApps often use providers like Infura/Alchemy/QuickNode, plus fallback nodes.
+
+Common failure modes:
+
+- **429 rate limit**
+- **timeouts**
+- **stale data** (node behind)
+- **partial outages**
+- **slow confirmations** due to network congestion
+
+<SectionTitle>QA Checklist</SectionTitle>
+<Checklist
+  items={[
+    'Reads show a clear loading state and a retry path',
+    'Timeouts surface as user-friendly errors (not silent failures)',
+    'UI does not freeze if an RPC call hangs',
+    'Retry logic does not spam requests (avoid infinite loops)',
+    'Fallback RPC (if implemented) actually works and is observable in logs',
+    'If tx broadcast fails, show a meaningful message and allow retry',
+    'Caching behavior is correct (no stale balances after write)',
+  ]}
+/>
+
+<SectionTitle>Manual Steps</SectionTitle>
+<Steps
+  items={[
+    'Open the dApp and observe initial reads (balances, positions, etc.)',
+    'Simulate slow network (Chrome DevTools → Network throttling) and reload',
+    'Trigger a read-heavy screen and watch for timeouts or repeated retries',
+    'Disconnect network briefly (airplane mode) and see how the UI handles it',
+    'Reconnect and verify the dApp recovers without a full hard refresh (if designed to)',
+  ]}
+/>
+
+<SectionTitle>How to Debug RPC Flakiness</SectionTitle>
+
+- Check browser console for network errors (429, timeout, DNS).
+- Use a different RPC endpoint and compare behavior.
+- Compare state from a block explorer vs the dApp UI.
+- If you have access: check provider dashboards (Alchemy/Infura metrics).
+
+<SectionTitle>Evidence to Capture</SectionTitle>
+
+- Console logs with error codes (429, timeout)
+- HAR file (network trace) if the bug is intermittent
+- Screenshot/video showing UI stuck state or incorrect recovery
+- Explorer screenshots proving correct chain data when UI is wrong
+
+<SectionTitle>Done When</SectionTitle>
+
+You can reliably detect and document:
+
+- rate limiting symptoms
+- timeout handling
+- stale data / delayed updates
+- recovery behavior after network interruption
