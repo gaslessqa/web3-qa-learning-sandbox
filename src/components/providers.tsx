@@ -1,15 +1,11 @@
-"use client";
+'use client';
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { type ReactNode, useState } from "react";
-import { AuthProvider } from "@/contexts/auth-context";
-
-// Note: Web3 providers (WagmiProvider, RainbowKitProvider) are commented out
-// until a WalletConnect Project ID is configured. Uncomment when ready.
-// import { WagmiProvider } from "wagmi";
-// import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
-// import { config as wagmiConfig } from "@/lib/wagmi";
-// import "@rainbow-me/rainbowkit/styles.css";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { type ReactNode, useState } from 'react';
+import { AuthProvider } from '@/contexts/auth-context';
+import { WagmiProvider } from 'wagmi';
+import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
+import { config as wagmiConfig } from '@/lib/wagmi';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -32,17 +28,12 @@ export function Providers({ children }: ProvidersProps) {
   );
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {/*
-        Uncomment Web3 providers when WalletConnect is configured:
-        <WagmiProvider config={wagmiConfig}>
-          <RainbowKitProvider>
-      */}
-      <AuthProvider>{children}</AuthProvider>
-      {/*
-          </RainbowKitProvider>
-        </WagmiProvider>
-      */}
-    </QueryClientProvider>
+    <WagmiProvider config={wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
+        <RainbowKitProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </RainbowKitProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
   );
 }

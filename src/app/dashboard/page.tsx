@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/auth-context';
 import { getClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/supabase';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 type ModuleRow = Database['public']['Tables']['modules']['Row'];
@@ -21,8 +20,7 @@ function levelRank(level: string | null) {
 }
 
 export default function DashboardPage() {
-  const { user, profile, isLoading: authLoading, signOut } = useAuth();
-  const router = useRouter();
+  const { user, isLoading: authLoading } = useAuth();
 
   const [modules, setModules] = useState<ModuleRow[]>([]);
   const [lessons, setLessons] = useState<LessonWithModule[]>([]);
@@ -30,11 +28,6 @@ export default function DashboardPage() {
 
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const handleSignOut = async () => {
-    await signOut();
-    router.push('/');
-  };
 
   useEffect(() => {
     let cancelled = false;
@@ -105,7 +98,7 @@ export default function DashboardPage() {
     let currentLevel: 'Beginner' | 'Intermediate' | 'Expert' = 'Beginner';
     for (const l of lessons) {
       if (completedLessonIds.has(l.id)) {
-        const r = levelRank(l.module?.level ?? l.level ?? null);
+        const r = levelRank(l.module?.level ?? null);
         if (r >= 3) currentLevel = 'Expert';
         else if (r === 2 && currentLevel !== 'Expert') currentLevel = 'Intermediate';
       }
@@ -127,25 +120,6 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-gray-900 text-white">
-      <header className="bg-gray-800 border-b border-gray-700">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <Link href="/" className="text-xl font-bold">
-            Web3 QA Hub
-          </Link>
-
-          <div className="flex items-center gap-4">
-            <span className="text-gray-300">{profile?.display_name || user?.email || 'Guest'}</span>
-
-            <button
-              onClick={handleSignOut}
-              className="px-4 py-2 text-sm bg-gray-700 rounded-lg hover:bg-gray-600 transition"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </header>
-
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-8">Dashboard</h1>
 

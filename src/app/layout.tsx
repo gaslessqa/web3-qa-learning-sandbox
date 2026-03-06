@@ -1,20 +1,14 @@
-import type { Metadata } from "next";
-import { Providers } from "@/components/providers";
-import "./globals.css";
+import type { Metadata } from 'next';
+import { Providers } from '@/components/providers';
+import { Navbar } from '@/components/navbar';
+import './globals.css';
+import '@rainbow-me/rainbowkit/styles.css';
 
 export const metadata: Metadata = {
-  title: "Web3 QA Learning Hub",
+  title: 'Web3 QA Learning Hub',
   description:
-    "Learn blockchain testing and Web3 quality assurance through interactive modules and hands-on exercises",
-  keywords: [
-    "web3",
-    "blockchain",
-    "QA",
-    "testing",
-    "smart contracts",
-    "ethereum",
-    "learning",
-  ],
+    'Learn blockchain testing and Web3 quality assurance through interactive modules and hands-on exercises',
+  keywords: ['web3', 'blockchain', 'QA', 'testing', 'smart contracts', 'ethereum', 'learning'],
 };
 
 export default function RootLayout({
@@ -25,7 +19,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <Providers>{children}</Providers>
+        <Providers>
+          <Navbar />
+          {children}
+        </Providers>
       </body>
     </html>
   );

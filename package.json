@@ -41,7 +41,7 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "viem": "^2.45.1",
-    "wagmi": "^3.4.2"
+    "wagmi": "^2.14.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

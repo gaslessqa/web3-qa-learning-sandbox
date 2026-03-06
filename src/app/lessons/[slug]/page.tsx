@@ -72,21 +72,6 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
 
   return (
     <main className="min-h-screen bg-gray-900 text-white">
-      {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <Link href="/" className="text-xl font-bold">
-            Web3 QA Hub
-          </Link>
-          <Link
-            href={`/modules/${module.slug}`}
-            className="px-4 py-2 text-sm bg-gray-700 rounded-lg hover:bg-gray-600 transition"
-          >
-            Back to Module
-          </Link>
-        </div>
-      </header>
-
       {/* Breadcrumb */}
       <div className="bg-gray-800/50 border-b border-gray-700">
         <div className="container mx-auto px-4 py-3">
