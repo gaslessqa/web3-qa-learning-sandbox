@@ -1,0 +1,164 @@
+---
+title: 'Testing RPC Failure Modes'
+level: 'expert'
+order: 2
+module: 'security-performance'
+estimated_minutes: 25
+---
+
+<Callout type="info">
+  RPC failures are the most common source of production bugs in Web3 dApps. Rate limits, timeouts,
+  stale data, and node downtime will happen — your app must handle all of them gracefully.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Test how your dApp behaves under degraded RPC conditions: rate limits, timeouts, stale data,
+and complete node outages.
+
+<SectionTitle>The RPC Failure Taxonomy</SectionTitle>
+
+| Failure Type | HTTP/WS Behaviour | Typical Cause |
+|---|---|---|
+| Rate limit | 429 Too Many Requests | Too many `eth_call` requests per second |
+| Timeout | Request hangs > 30s | Overloaded node, network congestion |
+| Node behind | Returns stale block | Syncing node, regional outage |
+| Connection refused | WebSocket disconnect | Provider downtime, maintenance |
+| Invalid response | Malformed JSON-RPC | Buggy middleware, load balancer issue |
+| Chain reorganisation | Receipt disappears | Rare — deep reorg on low-hashrate network |
+
+<SectionTitle>Testing Strategy: MSW (Mock Service Worker)</SectionTitle>
+
+For UI-level RPC failure testing, use **MSW** to intercept and mock Alchemy/Infura calls in tests:
+
+```bash
+npm install --save-dev msw
+```
+
+```typescript
+// e2e/mocks/rpc-handlers.ts
+import { http, HttpResponse } from 'msw';
+
+const ALCHEMY_URL = process.env.NEXT_PUBLIC_ALCHEMY_SEPOLIA_URL!;
+
+export const handlers = {
+  // Simulate rate limit
+  rateLimitAll: http.post(ALCHEMY_URL, () =>
+    HttpResponse.json({ error: { code: -32005, message: 'Request limit exceeded' } }, { status: 429 })
+  ),
+
+  // Simulate timeout (never responds)
+  timeout: http.post(ALCHEMY_URL, () =>
+    new Promise(() => {}) // never resolves
+  ),
+
+  // Simulate stale block (lag 100 blocks behind)
+  staleData: http.post(ALCHEMY_URL, async ({ request }) => {
+    const body = await request.json() as { method: string };
+    if (body.method === 'eth_blockNumber') {
+      return HttpResponse.json({ result: '0x1000' }); // very old block
+    }
+    return HttpResponse.passthrough();
+  }),
+};
+```
+
+<SectionTitle>Rate Limit Test (Playwright + MSW)</SectionTitle>
+
+```typescript
+// e2e/tests/rpc-failures.spec.ts
+import { test, expect } from '@playwright/test';
+
+test('[W3QA-63] rate limit → user sees helpful error, not crash', async ({ page }) => {
+  // Inject MSW service worker
+  await page.goto('/');
+  await page.evaluate(() => {
+    // MSW intercepts fetch from service worker
+    // Assumes MSW is set up in the app for test environments
+  });
+
+  // Navigate to a page that makes RPC calls
+  await page.goto('/labs/erc20-inspector');
+  await page.fill('[placeholder="0x..."]', '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48');
+  await page.getByRole('button', { name: /load/i }).click();
+
+  // With rate limit mocked, the read should fail gracefully
+  // App should show error state — not an unhandled exception
+  await expect(page.getByText(/error|failed|unable/i)).toBeVisible({ timeout: 10_000 });
+  // No unhandled error dialog or blank page
+  await expect(page.locator('h1')).toBeVisible();
+});
+```
+
+<SectionTitle>Hardhat-Level RPC Testing (Node Manipulation)</SectionTitle>
+
+On a local Hardhat node you can simulate network conditions directly:
+
+```typescript
+// hardhat/test/RpcEdgeCases.test.ts
+import { network } from 'hardhat';
+
+describe('RPC resilience', () => {
+  it('handles block mining pause', async () => {
+    // Stop auto-mining — simulate slow/stale network
+    await network.provider.send('evm_setAutomine', [false]);
+
+    // Submit a transaction
+    const { counter } = await loadFixture(deploy);
+    const pendingTx = counter.increment(); // not yet mined
+
+    // Advance one block manually
+    await network.provider.send('evm_mine', []);
+
+    // Now the tx should be confirmed
+    await expect(pendingTx).to.eventually.be.fulfilled;
+
+    // Restore auto-mining
+    await network.provider.send('evm_setAutomine', [true]);
+  });
+
+  it('handles chain reorg — state rolls back', async () => {
+    const { counter } = await loadFixture(deploy);
+    await counter.increment();
+    expect(await counter.count()).to.equal(1n);
+
+    // Snapshot before reorg
+    const snapshotId = await network.provider.send('evm_snapshot', []);
+
+    // New state
+    await counter.increment();
+    expect(await counter.count()).to.equal(2n);
+
+    // Revert to pre-reorg snapshot
+    await network.provider.send('evm_revert', [snapshotId]);
+    expect(await counter.count()).to.equal(1n);
+  });
+});
+```
+
+<SectionTitle>UI Behaviour Under RPC Failures</SectionTitle>
+
+For each failure type, document the expected UI response:
+
+| Failure | Expected UI | Must NOT happen |
+|---------|------------|-----------------|
+| Rate limit (429) | "Service temporarily busy, please try again" | App crash, blank page |
+| Timeout (> 30s) | "Request timed out — check your connection" | Infinite spinner |
+| Node behind | Warning: "Data may be stale (X blocks behind)" | Show wrong balance as current |
+| WebSocket disconnect | Reconnecting indicator, auto-retry | Silent failure with no feedback |
+| Invalid JSON-RPC | Generic "RPC error" message | Raw JSON error shown to user |
+
+<SectionTitle>Checklist for RPC Failure Coverage</SectionTitle>
+
+<Checklist>
+  <CheckItem>Rate limit (429): error message shown, no crash, retry button or auto-retry</CheckItem>
+  <CheckItem>Timeout: loading state clears after timeout threshold, error shown</CheckItem>
+  <CheckItem>WebSocket disconnect: reconnect attempted automatically, status indicator shown</CheckItem>
+  <CheckItem>Node behind (stale block): either warning shown or data refreshed on reconnect</CheckItem>
+  <CheckItem>Invalid response: generic error shown, no raw stack trace exposed to user</CheckItem>
+  <CheckItem>Multiple RPC providers configured: failover to secondary RPC on primary failure</CheckItem>
+</Checklist>
+
+<SectionTitle>Done When</SectionTitle>
+
+Your test suite includes at least three RPC failure scenarios — each with a documented expected
+UI behaviour — and all three pass without the app crashing or showing raw error objects to users.

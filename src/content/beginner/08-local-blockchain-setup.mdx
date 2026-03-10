@@ -1,0 +1,109 @@
+---
+title: 'Local Blockchain Setup (Hardhat)'
+level: 'beginner'
+order: 8
+module: 'local-blockchain'
+estimated_minutes: 20
+---
+
+<Callout type="info">
+  A local blockchain lets you practice Web3 QA for free, with no testnet faucets and instant
+  block times. It resets cleanly between runs — perfect for repeatable testing.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Run a local Hardhat node, deploy the practice contracts, and connect MetaMask so you can use the
+interactive labs without spending real or testnet ETH.
+
+<SectionTitle>Why Local Blockchain?</SectionTitle>
+
+- **Free**: no testnet ETH needed
+- **Fast**: blocks confirmed instantly
+- **Controllable**: reset state, manipulate time, fork mainnet
+- **Debuggable**: full stack traces on reverts, no mempool delay
+
+<SectionTitle>Step 1 — Install Hardhat</SectionTitle>
+
+Open a terminal in the project root:
+
+```bash
+cd hardhat
+npm install
+```
+
+This installs Hardhat and the Hardhat Toolbox (ethers, waffle, typechain, etc.).
+
+<SectionTitle>Step 2 — Start the Local Node</SectionTitle>
+
+```bash
+npm run node
+```
+
+Keep this terminal open. You will see 20 funded accounts printed — each with **10,000 ETH**.
+
+```
+Account #0: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+Private Key: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+...
+```
+
+<Callout type="warning">
+  These private keys are public. Never use them on mainnet or with real funds.
+</Callout>
+
+<SectionTitle>Step 3 — Deploy Practice Contracts</SectionTitle>
+
+In a second terminal:
+
+```bash
+cd hardhat
+npm run deploy
+```
+
+The output will show the deployed addresses:
+
+```
+Counter:        0x5FbDB2315678afecb367f032d93F642f64180aa3
+PracticeToken:  0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+```
+
+Copy these addresses — you will paste them into the lab interface.
+
+<SectionTitle>Step 4 — Connect MetaMask to Localhost</SectionTitle>
+
+<Steps>
+  <Step>Open MetaMask → Settings → Networks → Add Network</Step>
+  <Step>Network Name: Hardhat Local</Step>
+  <Step>RPC URL: http://127.0.0.1:8545</Step>
+  <Step>Chain ID: 31337</Step>
+  <Step>Currency Symbol: ETH</Step>
+  <Step>Save and switch to the Hardhat Local network</Step>
+</Steps>
+
+<SectionTitle>Step 5 — Import a Test Account</SectionTitle>
+
+<Steps>
+  <Step>Copy a private key from the Hardhat terminal output (Account #0 or any other)</Step>
+  <Step>MetaMask → Import Account → paste the private key</Step>
+  <Step>The account should show ~10,000 ETH balance</Step>
+</Steps>
+
+<SectionTitle>QA Checklist</SectionTitle>
+<Checklist>
+  <CheckItem>Hardhat node running — terminal shows "Started HTTP and WebSocket JSON-RPC server"</CheckItem>
+  <CheckItem>Both contracts deployed — addresses printed in terminal</CheckItem>
+  <CheckItem>MetaMask shows Hardhat Local network (chain 31337)</CheckItem>
+  <CheckItem>Imported account shows ETH balance</CheckItem>
+  <CheckItem>Hardhat Counter Lab in the web app loads the contract correctly</CheckItem>
+</Checklist>
+
+<SectionTitle>Resetting the Chain</SectionTitle>
+
+Stop the node (`Ctrl+C`) and restart it — all state is wiped. Redeploy with `npm run deploy`.
+
+This is useful for QA: you can always start from a clean slate without clearing databases or wallets.
+
+<SectionTitle>Done When</SectionTitle>
+
+You can open the **Hardhat Counter Lab**, paste the Counter address, and successfully call
+`increment()` and `decrement()` with your test wallet.

@@ -1,0 +1,127 @@
+---
+title: 'Threat Modeling for dApps'
+level: 'expert'
+order: 1
+module: 'security-performance'
+estimated_minutes: 30
+---
+
+<Callout type="warning">
+  Web3 applications have a unique threat surface: the smart contract layer is public, immutable,
+  and directly holds user funds. A missed threat model can mean permanent, irreversible loss —
+  not just a bad user experience.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Build a threat model for a Web3 dApp that covers wallet, RPC, smart contract, and UI attack
+surfaces — and translate each threat into concrete test cases.
+
+<SectionTitle>The STRIDE Framework Applied to dApps</SectionTitle>
+
+**STRIDE** (Spoofing, Tampering, Repudiation, Information Disclosure, DoS, Elevation of privilege)
+maps cleanly onto Web3 layers:
+
+| STRIDE Threat | Web3 Example | QA Test |
+|---------------|-------------|---------|
+| **Spoofing** | Phishing site mimics dApp UI, steals signatures | Verify domain, CSP headers, no mixed content |
+| **Tampering** | Malicious RPC node returns false `eth_call` results | Test against multiple RPC endpoints; assert tx on-chain |
+| **Repudiation** | No audit log of who called `reset()` | Verify events emitted with indexed `by` address |
+| **Info Disclosure** | Private key or seed phrase logged to console | Audit devtools console in E2E tests |
+| **DoS** | Attacker floods contract to hit block gas limit | Test degraded-RPC path; assert graceful fallback |
+| **Elevation of Privilege** | Non-owner calls `onlyOwner` function | Test every access-controlled function with wrong caller |
+
+<SectionTitle>The dApp Threat Surface Map</SectionTitle>
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  BROWSER / UI LAYER                                             │
+│  ├── XSS via rendered on-chain data (addresses, token names)   │
+│  ├── Malicious iframe or script in third-party dependencies     │
+│  └── CORS / CSP misconfiguration leaking auth tokens           │
+├─────────────────────────────────────────────────────────────────┤
+│  WALLET INTEGRATION LAYER                                       │
+│  ├── Signature replay across chains (missing chainId in sig)   │
+│  ├── Approve-phishing: users approve unlimited allowance        │
+│  └── Session hijack via stolen WalletConnect session key        │
+├─────────────────────────────────────────────────────────────────┤
+│  RPC / INDEXER LAYER                                            │
+│  ├── Man-in-the-middle on unencrypted WebSocket RPC            │
+│  ├── Stale data from lagging node (wrong balance shown)        │
+│  └── RPC key exposure in client-side bundle                    │
+├─────────────────────────────────────────────────────────────────┤
+│  SMART CONTRACT LAYER                                           │
+│  ├── Reentrancy (call external contract before state update)   │
+│  ├── Integer overflow / underflow (pre-0.8.0 or unchecked)     │
+│  ├── Access control bypass (tx.origin vs msg.sender)           │
+│  └── Front-running / MEV on predictable state changes          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+<SectionTitle>QA Checklist — UI / Browser Layer</SectionTitle>
+
+<Checklist>
+  <CheckItem>Content-Security-Policy header present and blocks inline scripts</CheckItem>
+  <CheckItem>On-chain strings (token names, symbols) rendered with `textContent`, not `innerHTML`</CheckItem>
+  <CheckItem>No private keys, mnemonics, or RPC API keys visible in browser devtools → Network tab</CheckItem>
+  <CheckItem>No sensitive data in `localStorage` or `sessionStorage` (only non-sensitive session state)</CheckItem>
+  <CheckItem>HTTPS enforced — no mixed content warnings in production</CheckItem>
+  <CheckItem>Third-party scripts audited — no unknown analytics or ad scripts that could exfiltrate data</CheckItem>
+</Checklist>
+
+<SectionTitle>QA Checklist — Wallet Integration Layer</SectionTitle>
+
+<Checklist>
+  <CheckItem>Approval amounts are bounded — app never requests `type(uint256).max` unless explicitly a "unlimited" feature with user consent</CheckItem>
+  <CheckItem>Approval UI shows the actual amount in human-readable format before signing</CheckItem>
+  <CheckItem>Signature payloads are EIP-712 typed (not raw bytes) — wallet shows decoded fields</CheckItem>
+  <CheckItem>ChainId is included in all signatures — prevents replay on other networks</CheckItem>
+  <CheckItem>WalletConnect sessions expire and cannot be reused after disconnect</CheckItem>
+</Checklist>
+
+<SectionTitle>QA Checklist — Smart Contract Layer</SectionTitle>
+
+<Checklist>
+  <CheckItem>Static analysis run with Slither or Aderyn — zero high/critical findings</CheckItem>
+  <CheckItem>Every `onlyOwner` / role-gated function tested with unauthorised caller → reverts</CheckItem>
+  <CheckItem>No use of `tx.origin` for authentication (use `msg.sender`)</CheckItem>
+  <CheckItem>State updated before external calls (reentrancy guard or CEI pattern)</CheckItem>
+  <CheckItem>Integer arithmetic uses Solidity 0.8+ checked math or SafeMath</CheckItem>
+  <CheckItem>Emergency pause/circuit-breaker tested: pause → transactions revert → unpause → resume</CheckItem>
+</Checklist>
+
+<SectionTitle>Translating Threats to Test Cases</SectionTitle>
+
+```typescript
+// Example: XSS via on-chain token name (Playwright test)
+test('[W3QA-62] malicious token name does not execute script', async ({ page }) => {
+  // Token with name: <img src=x onerror=alert(1)>
+  await page.goto('/labs/erc20-inspector');
+  await page.fill('[placeholder="0x..."]', MALICIOUS_TOKEN_ADDRESS);
+  await page.getByRole('button', { name: /load/i }).click();
+
+  // If XSS fires, this assertion will never be reached
+  // Use a dialog handler to catch any alert()
+  let xssFired = false;
+  page.on('dialog', () => { xssFired = true; });
+
+  await expect(page.locator('[data-testid="token-name"]')).toBeVisible();
+  expect(xssFired).toBe(false);
+});
+```
+
+```typescript
+// Example: Access control — onlyOwner function rejects non-owner
+test('[W3QA-62] reset() reverts for non-owner', async () => {
+  const { counter, other } = await loadFixture(deploy);
+  await counter.increment();
+  await expect(counter.connect(other).reset())
+    .to.be.revertedWithCustomError(counter, 'NotOwner');
+});
+```
+
+<SectionTitle>Done When</SectionTitle>
+
+Your project has:
+- A written threat model covering all four layers
+- At least one test case per STRIDE category mapped to your specific dApp
+- Slither / Aderyn clean output (zero high/critical) attached to the release sign-off

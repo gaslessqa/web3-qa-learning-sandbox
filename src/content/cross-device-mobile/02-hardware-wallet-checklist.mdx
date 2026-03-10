@@ -1,0 +1,140 @@
+---
+title: 'Hardware Wallet Testing Checklist'
+level: 'expert'
+order: 2
+module: 'cross-device-mobile'
+estimated_minutes: 20
+---
+
+<Callout type="warning">
+  Hardware wallets (Ledger, Trezor) are used by high-value users who are signing significant
+  transactions. The UX constraints are strict: no browser extension, limited display, physical
+  button confirmation. If your dApp doesn't test with hardware wallets, you're ignoring your
+  most security-conscious users.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Build a hardware wallet testing checklist and understand the unique constraints that hardware
+signers impose on dApp UX and test strategy.
+
+<SectionTitle>Hardware Wallet Architecture (QA Mental Model)</SectionTitle>
+
+```
+Browser (dApp)              MetaMask (bridge)         Ledger / Trezor
+     │                            │                         │
+     │──── Connect via ───────────▶│                         │
+     │     HW wallet option        │◀── USB/Bluetooth ───────│
+     │                            │                         │
+     │──── Sign request ─────────▶│──── Display on device ──▶│
+     │                            │                         │
+     │                            │◀─── Physical button ────│
+     │◀─── Signed tx ─────────────│                         │
+```
+
+The key difference from software wallets: **the user must physically confirm on the device.**
+There is no programmatic way to approve — which means automated E2E testing of the signing
+step is not possible without hardware-in-the-loop.
+
+<SectionTitle>Ledger-Specific Constraints</SectionTitle>
+
+<Checklist>
+  <CheckItem>**EIP-712 typed data**: Ledger displays structured fields if the contract ABI is known — verify the display is human-readable</CheckItem>
+  <CheckItem>**Blind signing**: if the contract ABI is NOT in Ledger's registry, user sees raw hex — document this in the UI ("Ledger will show blind signing warning")</CheckItem>
+  <CheckItem>**Large transactions**: Ledger has a display limit — very long data fields may be truncated. Test with max-length inputs.</CheckItem>
+  <CheckItem>**USB disconnect mid-flow**: unplug device while MetaMask is waiting for signature — app must show timeout error, not hang</CheckItem>
+  <CheckItem>**Ledger Live conflicting**: if Ledger Live is open on the same machine, it may claim the USB HID device — test both scenarios</CheckItem>
+  <CheckItem>**EIP-1559 transactions**: Ledger Nano S (original) does NOT support EIP-1559 — test that your app falls back to legacy gas pricing or shows a helpful error</CheckItem>
+</Checklist>
+
+<SectionTitle>Trezor-Specific Constraints</SectionTitle>
+
+<Checklist>
+  <CheckItem>**Trezor Connect popup**: Trezor opens a popup at `connect.trezor.io` — ensure your CSP does not block it</CheckItem>
+  <CheckItem>**Passphrase entry**: if user has passphrase-protected wallet, they enter it in the popup — test that the flow is not broken by the popup blocker</CheckItem>
+  <CheckItem>**Firmware version**: older firmware may not support newer Ethereum features (EIP-712, EIP-1559) — document minimum firmware requirement</CheckItem>
+  <CheckItem>**Multiple accounts**: Trezor derives accounts differently from MetaMask HD path — verify the correct account index is used</CheckItem>
+</Checklist>
+
+<SectionTitle>Pre-Release Hardware Wallet Checklist</SectionTitle>
+
+**Setup**
+<Checklist>
+  <CheckItem>Ledger Nano X (current gen) with latest firmware tested</CheckItem>
+  <CheckItem>Ledger Nano S Plus tested (different display, same firmware base)</CheckItem>
+  <CheckItem>Trezor Model T tested (colour touchscreen, different confirmation UX)</CheckItem>
+  <CheckItem>MetaMask desktop with hardware wallet connected tested</CheckItem>
+</Checklist>
+
+**Connection**
+<Checklist>
+  <CheckItem>Hardware wallet detected and available in MetaMask device list</CheckItem>
+  <CheckItem>Correct address displayed in dApp navbar after connecting</CheckItem>
+  <CheckItem>Switching between HW accounts reflects correct address in dApp</CheckItem>
+</Checklist>
+
+**Transaction Signing**
+<Checklist>
+  <CheckItem>Write function: signing request appears on device with correct contract address</CheckItem>
+  <CheckItem>Amount/data fields displayed legibly on device screen</CheckItem>
+  <CheckItem>User can scroll through all transaction fields before confirming</CheckItem>
+  <CheckItem>After physical button press: tx submitted, lifecycle observable in UI</CheckItem>
+</Checklist>
+
+**Rejection & Error Paths**
+<Checklist>
+  <CheckItem>User presses "Reject" on device: dApp shows rejection error, no stale spinner</CheckItem>
+  <CheckItem>Device unplugged mid-signing: dApp shows timeout error within 30s</CheckItem>
+  <CheckItem>Device screen locked (auto-lock): dApp waits, resumes when unlocked</CheckItem>
+  <CheckItem>Wrong device PIN entered (Ledger locks after 3 attempts): handled gracefully</CheckItem>
+</Checklist>
+
+<SectionTitle>Automating What Can Be Automated</SectionTitle>
+
+Full signing automation with real hardware is not practical in CI. But you can automate:
+
+```typescript
+// Test that the MetaMask HW wallet UI is reachable
+test('[W3QA-66] MetaMask shows hardware wallet option in connect flow', async ({ page }) => {
+  await page.goto('/labs/erc20-approve');
+  await page.getByRole('button', { name: /connect wallet/i }).click();
+
+  // MetaMask should show the hardware wallet option
+  await page.getByText('MetaMask').click();
+  // In MetaMask connect popup, "Use hardware wallet" link should exist
+  // (This tests the integration point, not the physical signing)
+  await expect(page.locator('text=Use a hardware wallet')).toBeVisible({ timeout: 5_000 });
+});
+```
+
+For teams with Ledger Speculos (a Ledger emulator):
+
+```bash
+# Ledger Speculos — emulates Ledger Nano devices in software
+# https://github.com/LedgerHQ/speculos
+docker run --rm -it -p 5000:5000 ghcr.io/ledgerhq/speculos \
+  --model nanos --display headless apps/ethereum.elf
+
+# Can then automate button presses via Speculos API:
+# POST http://localhost:5000/button/right → press right button
+# POST http://localhost:5000/button/both  → press both (confirm)
+```
+
+<SectionTitle>Release Sign-Off Matrix</SectionTitle>
+
+```
+Hardware Wallet    | Connect | Sign Tx | Reject | Unplug Recovery
+───────────────────────────────────────────────────────────────────
+Ledger Nano X      |   ✓     |   ✓     |   ✓    |   ✓
+Ledger Nano S Plus |   ✓     |   ✓     |   ✓    |   —  (pending)
+Trezor Model T     |   ✓     |   —     |   —    |   —  (not tested)
+───────────────────────────────────────────────────────────────────
+```
+
+Any `—` on a Ledger row is a P2 before release. Trezor coverage is P3 (nice to have).
+
+<SectionTitle>Done When</SectionTitle>
+
+Your team has:
+- A hardware wallet test checklist attached to the release sign-off process
+- At least Ledger Nano X manual test completed before every major release
+- Documentation for users on which device firmware versions are supported

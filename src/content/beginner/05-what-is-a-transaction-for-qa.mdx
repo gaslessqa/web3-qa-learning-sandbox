@@ -7,7 +7,7 @@ estimated_minutes: 25
 ---
 
 <Callout type="info">
-  In Web3 QA, a “transaction” is not just a button click. It’s a multi-step lifecycle involving
+  In Web3 QA, a "transaction" is not just a button click. It's a multi-step lifecycle involving
   wallet confirmation, network propagation, mining/validation, and on-chain state changes.
 </Callout>
 
@@ -16,7 +16,7 @@ Understand the transaction lifecycle and validate the correct UX + on-chain evid
 
 <SectionTitle>Transaction Lifecycle (Simplified)</SectionTitle>
 
-1. **User action**: Click “Swap / Stake / Mint / Send”
+1. **User action**: Click "Swap / Stake / Mint / Send"
 2. **Wallet prompt**: User confirms or rejects
 3. **Broadcast**: Signed tx is sent to the network via RPC
 4. **Pending**: Tx waits in mempool / queue
@@ -24,30 +24,26 @@ Understand the transaction lifecycle and validate the correct UX + on-chain evid
 6. **State update**: Balances / positions / NFT ownership / logs updated
 
 <SectionTitle>QA Checklist</SectionTitle>
-<Checklist
-  items={[
-    'Wallet prompt appears quickly after user action (no dead-click feeling)',
-    'User reject shows a clean message and resets loading state (no crash)',
-    'When tx is submitted: show pending UI with tx hash + link to explorer (if available)',
-    'Pending state handles slow confirmations (spinner + status text)',
-    'On confirmation: UI updates balances/state and shows success toast',
-    'On failure/revert: UI shows the reason when possible (or a clear generic error)',
-    'No double-submission: button disables during pending, prevents duplicate clicks',
-    'If user changes account/network mid-tx, the UI handles it gracefully',
-  ]}
-/>
+<Checklist>
+  <CheckItem>Wallet prompt appears quickly after user action (no dead-click feeling)</CheckItem>
+  <CheckItem>User reject shows a clean message and resets loading state (no crash)</CheckItem>
+  <CheckItem>When tx is submitted: show pending UI with tx hash + link to explorer (if available)</CheckItem>
+  <CheckItem>Pending state handles slow confirmations (spinner + status text)</CheckItem>
+  <CheckItem>On confirmation: UI updates balances/state and shows success toast</CheckItem>
+  <CheckItem>On failure/revert: UI shows the reason when possible (or a clear generic error)</CheckItem>
+  <CheckItem>No double-submission: button disables during pending, prevents duplicate clicks</CheckItem>
+  <CheckItem>If user changes account/network mid-tx, the UI handles it gracefully</CheckItem>
+</Checklist>
 
 <SectionTitle>Manual Steps</SectionTitle>
-<Steps
-  items={[
-    'Connect wallet on a testnet (recommended) or a sandbox environment',
-    'Trigger an action that sends a tx (e.g., a simple write action in your dApp)',
-    'Reject the tx in MetaMask and verify UI recovers properly',
-    'Submit the tx and observe the “pending” state',
-    'Copy the tx hash and open it in a block explorer',
-    'Wait for confirmation and verify the UI reflects the on-chain state change',
-  ]}
-/>
+<Steps>
+  <Step>Connect wallet on a testnet (recommended) or a sandbox environment</Step>
+  <Step>Trigger an action that sends a tx (e.g., a simple write action in your dApp)</Step>
+  <Step>Reject the tx in MetaMask and verify UI recovers properly</Step>
+  <Step>Submit the tx and observe the "pending" state</Step>
+  <Step>Copy the tx hash and open it in a block explorer</Step>
+  <Step>Wait for confirmation and verify the UI reflects the on-chain state change</Step>
+</Steps>
 
 <SectionTitle>What to Verify On-Chain</SectionTitle>
 

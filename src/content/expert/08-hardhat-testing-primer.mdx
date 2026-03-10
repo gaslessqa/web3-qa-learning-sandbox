@@ -1,0 +1,193 @@
+---
+title: 'Hardhat & Foundry Testing Primer'
+level: 'expert'
+order: 8
+module: 'qa-lead-track'
+estimated_minutes: 30
+---
+
+<Callout type="info">
+  Smart contract tests are your highest-confidence layer. They run in milliseconds, need no wallet,
+  and can cover every revert path, edge case, and event assertion — directly against the contract
+  bytecode.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Write production-quality Hardhat and Foundry tests that cover happy paths, revert conditions,
+access control, events, and gas budgets.
+
+<SectionTitle>Hardhat + Ethers.js Test Anatomy</SectionTitle>
+
+```typescript
+// hardhat/test/Counter.test.ts
+import { loadFixture } from '@nomicfoundation/hardhat-toolbox/network-helpers';
+import { expect } from 'chai';
+import hre from 'hardhat';
+
+describe('Counter', () => {
+  // Fixture — deploy once, snapshot, restore per test (fast)
+  async function deployCounter() {
+    const [owner, other] = await hre.ethers.getSigners();
+    const Counter = await hre.ethers.getContractFactory('Counter');
+    const counter = await Counter.deploy();
+    return { counter, owner, other };
+  }
+
+  it('initialises count to 0', async () => {
+    const { counter } = await loadFixture(deployCounter);
+    expect(await counter.count()).to.equal(0n);
+  });
+
+  it('increments count', async () => {
+    const { counter } = await loadFixture(deployCounter);
+    await counter.increment();
+    expect(await counter.count()).to.equal(1n);
+  });
+
+  it('emits Incremented event with correct args', async () => {
+    const { counter, owner } = await loadFixture(deployCounter);
+    await expect(counter.increment())
+      .to.emit(counter, 'Incremented')
+      .withArgs(owner.address, 1n);
+  });
+
+  it('reverts decrement when count is 0', async () => {
+    const { counter } = await loadFixture(deployCounter);
+    await expect(counter.decrement())
+      .to.be.revertedWithCustomError(counter, 'AlreadyAtZero');
+  });
+
+  it('reverts reset when caller is not owner', async () => {
+    const { counter, other } = await loadFixture(deployCounter);
+    await counter.increment();
+    await expect(counter.connect(other).reset())
+      .to.be.revertedWithCustomError(counter, 'NotOwner');
+  });
+});
+```
+
+<SectionTitle>Key Assertion Patterns</SectionTitle>
+
+| What to test | Chai / Hardhat assertion |
+|---|---|
+| Return value | `expect(await fn()).to.equal(expected)` |
+| Revert with custom error | `expect(tx).to.be.revertedWithCustomError(contract, 'ErrorName')` |
+| Revert with string reason | `expect(tx).to.be.revertedWith('reason')` |
+| Event emitted | `expect(tx).to.emit(contract, 'EventName').withArgs(...)` |
+| Balance change | `expect(tx).to.changeEtherBalance(signer, delta)` |
+| ERC-20 balance change | `expect(tx).to.changeTokenBalance(token, signer, delta)` |
+
+<SectionTitle>Foundry Equivalent (Solidity Tests)</SectionTitle>
+
+```solidity
+// hardhat/test/Counter.t.sol  (if using Foundry)
+pragma solidity ^0.8.28;
+import "forge-std/Test.sol";
+import "../contracts/Counter.sol";
+
+contract CounterTest is Test {
+    Counter counter;
+    address owner;
+    address other = address(0xBEEF);
+
+    function setUp() public {
+        owner = address(this);
+        counter = new Counter();
+    }
+
+    function test_InitialCountIsZero() public {
+        assertEq(counter.count(), 0);
+    }
+
+    function test_Increment() public {
+        counter.increment();
+        assertEq(counter.count(), 1);
+    }
+
+    function test_EmitsIncrementedEvent() public {
+        vm.expectEmit(true, false, false, true);
+        emit Counter.Incremented(owner, 1);
+        counter.increment();
+    }
+
+    function test_RevertDecrement_WhenZero() public {
+        vm.expectRevert(Counter.AlreadyAtZero.selector);
+        counter.decrement();
+    }
+
+    function test_RevertReset_WhenNotOwner() public {
+        counter.increment();
+        vm.prank(other);
+        vm.expectRevert(Counter.NotOwner.selector);
+        counter.reset();
+    }
+
+    // Fuzz testing — Foundry exclusive
+    function testFuzz_IncrementNTimes(uint8 n) public {
+        for (uint256 i; i < n; i++) counter.increment();
+        assertEq(counter.count(), uint256(n));
+    }
+}
+```
+
+<SectionTitle>Coverage with Hardhat</SectionTitle>
+
+```bash
+# In hardhat/ directory:
+npx hardhat coverage
+
+# Generates:
+# - coverage/lcov.info  (for CI upload)
+# - coverage/index.html (browser report)
+```
+
+Target: **100% line and branch coverage** on all business-critical functions (increment, decrement, reset). View the HTML report to find missed branches.
+
+<SectionTitle>Gas Reporting</SectionTitle>
+
+```bash
+# hardhat.config.ts — enable gas reporter:
+gasReporter: {
+  enabled: true,
+  currency: 'USD',
+  gasPrice: 30, // gwei
+}
+
+# Output after test run:
+# ·--------------|-------------|-------------|
+# |  Contract    |  Method     |  Gas (avg)  |
+# |  Counter     |  increment  |  29,847     |
+# |  Counter     |  decrement  |  30,012     |
+# |  Counter     |  reset      |  22,481     |
+# ·--------------|-------------|-------------|
+```
+
+Add gas budget assertions to prevent regressions:
+
+```typescript
+it('increment() costs less than 35,000 gas', async () => {
+  const { counter } = await loadFixture(deployCounter);
+  const tx = await counter.increment();
+  const receipt = await tx.wait();
+  expect(receipt!.gasUsed).to.be.lessThan(35_000n);
+});
+```
+
+<SectionTitle>Test Organisation for QA Leads</SectionTitle>
+
+<Checklist>
+  <CheckItem>One `describe` block per contract, one inner `describe` per function</CheckItem>
+  <CheckItem>Each test covers exactly one scenario — not a multi-step story</CheckItem>
+  <CheckItem>All reverts tested with the specific error name, not a generic `to.be.reverted`</CheckItem>
+  <CheckItem>All events tested with `withArgs()` — verify the actual values, not just emission</CheckItem>
+  <CheckItem>Access control: test with both authorised and unauthorised signers</CheckItem>
+  <CheckItem>Boundary conditions: count = 0 before decrement, owner before reset, etc.</CheckItem>
+</Checklist>
+
+<SectionTitle>Done When</SectionTitle>
+
+Your contract test suite:
+- Runs `npx hardhat coverage` and reports ≥ 95% line coverage
+- Has zero tests using generic `.to.be.reverted` — all use specific custom error names
+- Has at least one gas budget assertion per public write function
+- Passes reliably in CI in under 60 seconds

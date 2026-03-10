@@ -1,0 +1,107 @@
+---
+title: 'Writing Testable Acceptance Criteria'
+level: 'expert'
+order: 4
+module: 'qa-lead-track'
+estimated_minutes: 20
+---
+
+<Callout type="warning">
+  "The UI should update after the transaction" is not a testable acceptance criterion. Without
+  precision, QA engineers write tests that pass while real bugs ship. This lesson fixes that.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Write acceptance criteria (AC) for Web3 user stories that are specific enough to generate direct test cases — no interpretation required.
+
+<SectionTitle>The Formula: Given / When / Then</SectionTitle>
+
+Every AC follows the same structure:
+
+```
+Given [precondition / system state]
+When  [user action or event]
+Then  [observable, verifiable outcome]
+```
+
+The key word is **verifiable** — the outcome must be something a test (or a human reviewer) can
+confirm with certainty, not just "it looks right."
+
+<SectionTitle>Bad vs Good: Web3 Examples</SectionTitle>
+
+**Bad AC:**
+> The user should be able to approve the token.
+
+**Good AC:**
+> **Given** the user is connected on Sepolia with ≥ 0.01 ETH and allowance = 0
+> **When** they enter amount "50" and click Approve
+> **Then** a wallet prompt appears with `approve(spender, 50 × 10^18)` as the calldata
+> **And** after confirmation, `allowance(user, spender)` returns `50 × 10^18`
+> **And** an `Approval(owner, spender, 50 × 10^18)` event appears in the tx receipt
+
+---
+
+**Bad AC:**
+> Transaction errors should be handled.
+
+**Good AC:**
+> **Given** the user is connected but NOT the contract owner
+> **When** they attempt to call `reset()`
+> **Then** the simulation fails before a wallet prompt appears
+> **And** the Reset button remains disabled
+> **And** no wallet prompt is shown
+
+<SectionTitle>AC Requirements for Web3 Stories</SectionTitle>
+
+A complete Web3 AC must specify:
+
+<Checklist>
+  <CheckItem>**Precondition** — wallet state (connected / disconnected), network, balance, existing on-chain state</CheckItem>
+  <CheckItem>**Action** — exact UI interaction (field value, button, network switch)</CheckItem>
+  <CheckItem>**On-chain outcome** — what the contract state must be after (use exact function / return value)</CheckItem>
+  <CheckItem>**UI outcome** — what the user sees (loading state, success message, error text)</CheckItem>
+  <CheckItem>**Event outcome** — which events were emitted, with which args</CheckItem>
+  <CheckItem>**Rejection path** — what happens if user cancels, tx reverts, or RPC fails</CheckItem>
+</Checklist>
+
+<SectionTitle>Template for a Write-Function Story</SectionTitle>
+
+```markdown
+## AC-1: Happy Path
+Given: wallet connected on [network], balance ≥ [amount], [contract state]
+When:  user performs [action]
+Then:  wallet prompt shows calldata for [functionName]([args])
+And:   tx confirms within [timeout]
+And:   [readFunction]() now returns [expected value]
+And:   [EventName]([args]) appears in receipt logs
+And:   UI displays [success message]
+
+## AC-2: User Rejection
+Given: [same precondition]
+When:  user clicks [action] and then rejects in wallet
+Then:  UI returns to idle state within 2s
+And:   no tx hash is stored
+And:   contract state unchanged
+
+## AC-3: Revert
+Given: [precondition that causes revert, e.g. wrong role]
+When:  user attempts [action]
+Then:  simulation fails — button is disabled
+And:   error message reads "[expected revert reason]"
+And:   no wallet prompt is shown
+```
+
+<SectionTitle>Common Pitfalls</SectionTitle>
+
+| Pitfall | Fix |
+|---------|-----|
+| "Should update the UI" | Specify exactly what updates: which component, which value, which format |
+| "Transaction should succeed" | Name the function, args, and expected return / event |
+| Omitting rejection paths | Every write story needs at least one rejection AC |
+| Using raw units in AC | Write "50 USDC" not "50000000" — testers convert using decimals |
+| Missing network pre-condition | Always specify chainId / network in precondition |
+
+<SectionTitle>Done When</SectionTitle>
+
+Your next sprint's user stories each have ACs that satisfy the template above — and each AC
+maps directly to one or more test cases with zero ambiguity about what "pass" means.

@@ -1,0 +1,129 @@
+---
+title: 'Flaky Test Management'
+level: 'expert'
+order: 6
+module: 'expert-automation'
+estimated_minutes: 20
+---
+
+<Callout type="warning">
+  A flaky test is worse than no test. It produces false failures that train your team to ignore
+  CI results — the exact opposite of what tests are for. Treat flakiness as a P2 defect with a
+  root cause and a fix, not a "known issue" to tolerate.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Identify, classify, and eliminate the most common sources of flakiness in Web3 E2E tests.
+
+<SectionTitle>The Top 5 Sources of Flakiness in Web3 Tests</SectionTitle>
+
+**1. Fixed sleeps instead of condition waits**
+
+```typescript
+// ❌ Flaky — sleep may not be long enough on slow CI
+await page.waitForTimeout(3000);
+await expect(page.getByText('Confirmed')).toBeVisible();
+
+// ✓ Stable — wait for the condition, not an arbitrary time
+await expect(page.getByText('Confirmed')).toBeVisible({ timeout: 30_000 });
+```
+
+**2. Race between tx submission and UI update**
+
+```typescript
+// ❌ Flaky — reads count() before the UI has refetched
+await page.getByRole('button', { name: /increment/i }).click();
+await metamask.confirmTransaction();
+await expect(page.locator('[data-testid="count"]')).toHaveText('1');
+
+// ✓ Stable — wait for the "Confirmed" status indicator first
+await page.getByRole('button', { name: /increment/i }).click();
+await metamask.confirmTransaction();
+await expect(page.locator('[data-testid="tx-confirmed"]')).toBeVisible({ timeout: 30_000 });
+await expect(page.locator('[data-testid="count"]')).toHaveText('1');
+```
+
+**3. Hardcoded network state assumptions**
+
+```typescript
+// ❌ Flaky — assumes allowance is 0, but previous test set it
+await expect(page.getByText('Current allowance: 0')).toBeVisible();
+
+// ✓ Stable — reset state in beforeEach or use fresh contract per test
+beforeEach(async () => {
+  // Deploy fresh Counter contract for each test via fixture
+  counter = await deployFreshCounter();
+});
+```
+
+**4. MetaMask popup timing**
+
+```typescript
+// ❌ Flaky — MetaMask popup may not be open yet
+const mmPopup = context.pages().find(p => p.url().includes('notification'));
+
+// ✓ Stable — wait for the event
+const mmPopup = await context.waitForEvent('page', {
+  predicate: p => p.url().includes('notification'),
+  timeout: 10_000,
+});
+```
+
+**5. Test order dependency**
+
+```typescript
+// ❌ Flaky — test B depends on state set by test A
+test('A: connects wallet', async () => { /* sets wallet state */ });
+test('B: approves token', async () => { /* assumes wallet is connected */ });
+
+// ✓ Stable — each test is self-contained
+test('B: approves token', async ({ page, context }) => {
+  await connectWallet(page, context);  // own setup
+  // ... rest of test
+});
+```
+
+<SectionTitle>Detecting Flaky Tests</SectionTitle>
+
+```bash
+# Run a test N times to check for flakiness (Playwright repeat)
+npx playwright test tests/navigation.spec.ts --repeat-each=5
+
+# Run with retries to surface flaky tests (not to hide them)
+npx playwright test --retries=3 --reporter=list
+# Tests that pass on retry are flaky — investigate, don't just ship with retries
+```
+
+In CI, `retries: 2` is set for resilience. But **track retried tests as flaky candidates**:
+
+```yaml
+- name: Run tests
+  run: npx playwright test
+  # Check exit code: 0=all pass, 1=failures exist, 2=some passed after retry (flaky)
+```
+
+<SectionTitle>Flaky Test Process</SectionTitle>
+
+<Steps>
+  <Step>Detect: test fails intermittently in CI or locally with `--repeat-each=5`</Step>
+  <Step>Isolate: run the single test in isolation (`--grep "test name"`) — still flaky?</Step>
+  <Step>Classify: is it timing (add proper wait), state leak (fix beforeEach), env assumption (fix fixture), or MetaMask timing (use `waitForEvent`)?</Step>
+  <Step>Fix: apply the relevant pattern from above. No `waitForTimeout` — always use condition waits</Step>
+  <Step>Verify: run `--repeat-each=10` — all 10 must pass</Step>
+  <Step>Document: comment in the test file what the flakiness was and how it was fixed</Step>
+</Steps>
+
+<SectionTitle>Playwright Retries — Right Way to Use Them</SectionTitle>
+
+`retries: 2` in CI is correct — it handles genuine network flakiness (RPC timeouts, CI resource contention).
+It should **not** be used to paper over broken tests.
+
+**Rule:** if a test passes on retry, file a flaky ticket. The retry kept CI green, but the root
+cause still needs fixing. A test that "usually passes" is not a passing test.
+
+<SectionTitle>Done When</SectionTitle>
+
+Your test suite:
+- Has zero `waitForTimeout` calls — all replaced with condition waits
+- Each test is independent of test execution order
+- Any test that fails intermittently is tracked as a P2 ticket, not accepted as normal

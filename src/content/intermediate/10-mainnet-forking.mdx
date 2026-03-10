@@ -1,0 +1,140 @@
+---
+title: 'Mainnet Forking with Hardhat'
+level: 'intermediate'
+order: 10
+module: 'local-blockchain'
+estimated_minutes: 25
+---
+
+<Callout type="info">
+  Mainnet forking lets you clone the live Ethereum state (real tokens, real balances, real protocols)
+  into your local Hardhat node. You get production-grade realism with zero real ETH at risk.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Set up a mainnet fork, impersonate token-rich accounts, and run tests against real DeFi protocol
+state — all locally.
+
+<SectionTitle>Why Fork Instead of Testnet?</SectionTitle>
+
+| | Mainnet Fork | Sepolia Testnet |
+|---|---|---|
+| Real token contracts | ✓ | ✗ (custom deploys only) |
+| Real user balances | ✓ | ✗ |
+| Real protocol state (Uniswap, Aave…) | ✓ | ✗ |
+| Free to run | ✓ | ✓ |
+| Instant block time | ✓ | ~12s |
+| Needs RPC key | ✓ | ✗ |
+
+<SectionTitle>Prerequisites</SectionTitle>
+
+<Checklist>
+  <CheckItem>Hardhat project set up (see Local Blockchain Setup lesson)</CheckItem>
+  <CheckItem>Alchemy or Infura API key for mainnet RPC access</CheckItem>
+  <CheckItem>`.env` file with `ALCHEMY_MAINNET_URL` (never commit this)</CheckItem>
+</Checklist>
+
+<SectionTitle>Enabling Fork in hardhat.config.ts</SectionTitle>
+
+```typescript
+// hardhat/hardhat.config.ts
+import * as dotenv from 'dotenv';
+dotenv.config();
+
+const config: HardhatUserConfig = {
+  solidity: '0.8.28',
+  networks: {
+    hardhat: {
+      forking: {
+        url: process.env.ALCHEMY_MAINNET_URL!,
+        // Pin block for reproducible tests:
+        blockNumber: 21_500_000,
+      },
+    },
+  },
+};
+```
+
+Start the fork:
+
+```bash
+npx hardhat node --fork $ALCHEMY_MAINNET_URL
+# or pin a block:
+npx hardhat node --fork $ALCHEMY_MAINNET_URL --fork-block-number 21500000
+```
+
+<SectionTitle>Impersonating Accounts (No Private Key Needed)</SectionTitle>
+
+On a fork you can act as *any* address — even one holding millions in USDC:
+
+```typescript
+import { ethers } from 'hardhat';
+
+const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'; // mainnet USDC
+const WHALE = '0x55FE002aeff02F77364de339a1292923A15844B8'; // known USDC whale
+
+// Impersonate the whale
+await network.provider.request({
+  method: 'hardhat_impersonateAccount',
+  params: [WHALE],
+});
+
+const whale = await ethers.getSigner(WHALE);
+const usdc = await ethers.getContractAt('IERC20', USDC, whale);
+
+// Transfer from whale to your test address
+await usdc.transfer(testAddress, 1_000_000n * 10n ** 6n); // 1M USDC
+```
+
+<SectionTitle>Pinning Blocks for Deterministic Tests</SectionTitle>
+
+Without a pinned block number, Alchemy fetches the latest block on each run — tests may break as
+state changes. Always pin:
+
+```typescript
+// In test file — override fork block for this describe block
+before(async () => {
+  await network.provider.send('hardhat_reset', [
+    {
+      forking: {
+        jsonRpcUrl: process.env.ALCHEMY_MAINNET_URL!,
+        blockNumber: 21_500_000,
+      },
+    },
+  ]);
+});
+```
+
+<SectionTitle>QA Use Cases for Mainnet Forks</SectionTitle>
+
+<Checklist>
+  <CheckItem>Test your contract interacting with live USDC / WETH / DAI without deploying mock tokens</CheckItem>
+  <CheckItem>Verify approval + transferFrom flow against the real ERC-20 contract</CheckItem>
+  <CheckItem>Simulate whale transfers to seed test accounts with realistic balances</CheckItem>
+  <CheckItem>Test integration with Uniswap / Aave by calling their mainnet contracts locally</CheckItem>
+  <CheckItem>Reproduce a reported mainnet bug by pinning to the block when it occurred</CheckItem>
+</Checklist>
+
+<SectionTitle>Performance Tips</SectionTitle>
+
+```bash
+# Cache RPC responses locally to speed up repeated runs
+# In hardhat.config.ts:
+networks: {
+  hardhat: {
+    forking: {
+      url: process.env.ALCHEMY_MAINNET_URL!,
+      blockNumber: 21_500_000,
+    },
+  },
+},
+# Hardhat caches fetched state in node_modules/.cache/hardhat-network-fork/
+# Don't delete this unless you want slower first runs
+```
+
+<SectionTitle>Done When</SectionTitle>
+
+You can:
+1. Start a Hardhat node forked from a pinned mainnet block
+2. Impersonate a token-rich account and transfer tokens in a test
+3. Run your contract tests against the real USDC or WETH contract

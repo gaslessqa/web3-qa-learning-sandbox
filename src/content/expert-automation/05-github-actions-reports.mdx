@@ -1,0 +1,131 @@
+---
+title: 'GitHub Actions CI with Reports & Artifacts'
+level: 'expert'
+order: 5
+module: 'expert-automation'
+estimated_minutes: 20
+---
+
+<Callout type="info">
+  A passing CI green light is only useful if team members can investigate failures quickly.
+  This means HTML reports, traces, screenshots, and JUnit XML — all uploaded as artifacts and
+  visible in the GitHub UI without running anything locally.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Wire Playwright into GitHub Actions so every push produces a visual HTML report, JUnit XML for
+dashboards, and traces for debugging failures — automatically.
+
+<SectionTitle>The CI Workflow (e2e.yml)</SectionTitle>
+
+The project includes `.github/workflows/e2e.yml`. The key steps:
+
+```yaml
+- name: Install Playwright browsers
+  run: npx playwright install --with-deps chromium firefox
+
+- name: Build Next.js
+  run: npm run build
+
+- name: Start Next.js server
+  run: npm start &
+
+- name: Wait for server ready
+  run: npx wait-on http://localhost:3000 --timeout 30000
+
+- name: Run API smoke tests
+  run: npx playwright test --project=api-smoke
+  working-directory: e2e
+
+- name: Run chromium tests
+  run: npx playwright test --project=chromium
+  working-directory: e2e
+```
+
+<SectionTitle>Uploading Reports as Artifacts</SectionTitle>
+
+```yaml
+- name: Upload HTML report
+  if: always()       # ← upload even on failure — crucial for debugging
+  uses: actions/upload-artifact@v4
+  with:
+    name: playwright-report-${{ github.run_id }}
+    path: e2e/reports/html/
+    retention-days: 30
+
+- name: Upload JUnit XML
+  if: always()
+  uses: actions/upload-artifact@v4
+  with:
+    name: junit-results-${{ github.run_id }}
+    path: e2e/reports/junit.xml
+    retention-days: 30
+```
+
+`if: always()` is **required** — without it, the upload step skips when tests fail, which is
+exactly when you need the report most.
+
+<SectionTitle>Traces for Debugging</SectionTitle>
+
+`playwright.config.ts` sets `trace: 'on-first-retry'`. After a failed retry, Playwright generates
+a `.zip` trace file at `e2e/reports/results/`. Upload these too:
+
+```yaml
+- name: Upload trace files
+  if: failure()
+  uses: actions/upload-artifact@v4
+  with:
+    name: playwright-traces-${{ github.run_id }}
+    path: e2e/reports/results/
+    retention-days: 7
+```
+
+To inspect: download the `.zip`, visit https://trace.playwright.dev, and drag the file in.
+You'll see the full test execution with DOM snapshots, network requests, and console logs.
+
+<SectionTitle>JUnit XML → GitHub Checks</SectionTitle>
+
+JUnit XML lets you publish test results as a GitHub Checks annotation:
+
+```yaml
+- name: Publish test results
+  uses: EnricoMi/publish-unit-test-result-action@v2
+  if: always()
+  with:
+    files: e2e/reports/junit.xml
+    comment_mode: always
+    check_name: E2E Test Results
+```
+
+This adds a "E2E Test Results" check to each PR with pass/fail counts visible without downloading
+any artifact.
+
+<SectionTitle>Secrets Required</SectionTitle>
+
+```
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID  — from cloud.walletconnect.com
+METAMASK_PATH       — path or archive of MetaMask extension (wallet tests only)
+METAMASK_SEED       — 12-word test seed phrase (never a funded wallet!)
+METAMASK_PASSWORD   — MetaMask password for test context
+```
+
+Add these in: GitHub repo → Settings → Secrets and Variables → Actions
+
+<SectionTitle>Branch Protection Rules</SectionTitle>
+
+Require E2E checks to pass before merge:
+
+```
+Settings → Branches → Branch protection rules → main
+  ✓ Require status checks before merging
+    Status checks: "Core UI & API Tests"
+```
+
+This ensures no PR merges with a broken lab page or 404 on a lesson route.
+
+<SectionTitle>Done When</SectionTitle>
+
+After any push to main:
+- GitHub Actions runs and shows green/red per browser project
+- The HTML report is downloadable from the Actions run artifacts tab
+- Any failure includes a trace file you can open in the Playwright Trace Viewer

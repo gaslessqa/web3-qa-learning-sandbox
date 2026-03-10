@@ -16,6 +16,8 @@ export default tseslint.config(
       'allure-results/',
       'allure-report/',
       'reports/',
+      'e2e/',
+      'hardhat/',
     ],
   },
   {

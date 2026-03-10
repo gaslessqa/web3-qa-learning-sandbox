@@ -21,32 +21,30 @@ export function Callout({
   return <div className={`not-prose my-6 rounded-2xl border p-4 ${styles}`}>{children}</div>;
 }
 
-export function Checklist({ items }: { items: string[] }) {
+export function Checklist({ children }: { children: React.ReactNode }) {
+  return <ul className="not-prose my-4 space-y-2">{children}</ul>;
+}
+
+export function CheckItem({ children }: { children: React.ReactNode }) {
   return (
-    <ul className="not-prose my-4 space-y-2">
-      {items.map((t, i) => (
-        <li key={i} className="flex items-start gap-3 text-gray-200">
-          <span className="mt-1 inline-flex h-5 w-5 items-center justify-center rounded-md border border-gray-600 bg-gray-800 text-xs text-gray-200">
-            ✓
-          </span>
-          <span className="leading-relaxed">{t}</span>
-        </li>
-      ))}
-    </ul>
+    <li className="flex items-start gap-3 text-gray-200">
+      <span className="mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-gray-600 bg-gray-800 text-xs text-gray-200">
+        ✓
+      </span>
+      <span className="leading-relaxed">{children}</span>
+    </li>
   );
 }
 
-export function Steps({ items }: { items: string[] }) {
+export function Steps({ children }: { children: React.ReactNode }) {
+  return <ol className="steps-list not-prose my-4 space-y-3">{children}</ol>;
+}
+
+export function Step({ children }: { children: React.ReactNode }) {
   return (
-    <ol className="not-prose my-4 space-y-3">
-      {items.map((t, i) => (
-        <li key={i} className="flex gap-3 text-gray-200">
-          <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-700 text-sm font-semibold text-white">
-            {i + 1}
-          </span>
-          <span className="leading-relaxed">{t}</span>
-        </li>
-      ))}
-    </ol>
+    <li className="steps-item flex gap-3 text-gray-200">
+      <span className="steps-badge mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-700 text-sm font-semibold text-white" />
+      <span className="leading-relaxed">{children}</span>
+    </li>
   );
 }

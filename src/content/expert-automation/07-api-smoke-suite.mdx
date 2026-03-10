@@ -1,0 +1,120 @@
+---
+title: 'API Smoke Suite for Platform Endpoints'
+level: 'expert'
+order: 7
+module: 'expert-automation'
+estimated_minutes: 15
+---
+
+<Callout type="info">
+  An API smoke suite runs in under 30 seconds, needs no browser and no wallet, and catches the
+  most common deployment failures immediately. It is the cheapest, most reliable CI test you can
+  write.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Write an API smoke suite that validates all platform routes return correct status codes and
+content types — runnable in CI before the full E2E suite.
+
+<SectionTitle>Playwright's API Testing Mode</SectionTitle>
+
+Playwright supports HTTP-only tests via `request` — no browser context needed:
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+const BASE = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
+
+test('GET /labs returns 200', async ({ request }) => {
+  const res = await request.get(`${BASE}/labs`);
+  expect(res.status()).toBe(200);
+});
+
+test('GET /labs/erc20-inspector returns 200', async ({ request }) => {
+  const res = await request.get(`${BASE}/labs/erc20-inspector`);
+  expect(res.status()).toBe(200);
+});
+
+test('GET /labs/nonexistent returns 404', async ({ request }) => {
+  const res = await request.get(`${BASE}/labs/nonexistent-slug`);
+  expect(res.status()).toBe(404);
+});
+```
+
+The `api-smoke` Playwright project runs these at `workers: 4` with no browser overhead —
+the entire suite finishes in under 10 seconds.
+
+<SectionTitle>What to Cover</SectionTitle>
+
+<Checklist>
+  <CheckItem>All known-good routes return 200 (home, labs index, each lab slug, lesson slugs)</CheckItem>
+  <CheckItem>Known-bad slugs return 404 (not 500, not a redirect loop)</CheckItem>
+  <CheckItem>HTML pages return `Content-Type: text/html`</CheckItem>
+  <CheckItem>Static assets under `/_next/static/` return 200</CheckItem>
+  <CheckItem>No route returns 500 (unhandled server error)</CheckItem>
+</Checklist>
+
+<SectionTitle>Response Body Assertions</SectionTitle>
+
+For richer coverage, assert page content without a browser:
+
+```typescript
+test('labs page contains expected lab titles', async ({ request }) => {
+  const res = await request.get(`${BASE}/labs`);
+  const html = await res.text();
+  expect(html).toContain('ERC-20 Approve Lab');
+  expect(html).toContain('Hardhat Counter Lab');
+  expect(html).toContain('Transaction Lifecycle Lab');
+});
+
+test('lessons page renders MDX heading', async ({ request }) => {
+  const res = await request.get(`${BASE}/lessons/connect-disconnect-wallet`);
+  const html = await res.text();
+  expect(html).toContain('Connect &amp; Disconnect Wallet');
+});
+```
+
+These catch MDX rendering failures before any browser test runs.
+
+<SectionTitle>Running the Suite in CI First</SectionTitle>
+
+In `.github/workflows/e2e.yml` the API smoke job runs **before** browser tests:
+
+```yaml
+- name: Run API smoke tests
+  run: npx playwright test --project=api-smoke
+  working-directory: e2e
+
+# Only proceed to browser tests if API smoke passes:
+- name: Run chromium tests
+  run: npx playwright test --project=chromium
+  working-directory: e2e
+```
+
+If a deployment is broken (app won't start, MDX pipeline crashes), the smoke test fails in
+under 10 seconds — saving the 5-10 minutes a browser suite would take to surface the same issue.
+
+<SectionTitle>Extending for Supabase Routes</SectionTitle>
+
+When the platform adds authenticated API routes, extend the suite:
+
+```typescript
+test('unauthenticated request to /api/progress returns 401', async ({ request }) => {
+  const res = await request.get(`${BASE}/api/progress`);
+  expect(res.status()).toBe(401);
+});
+
+test('authenticated request with valid JWT returns 200', async ({ request }) => {
+  const res = await request.get(`${BASE}/api/progress`, {
+    headers: { Authorization: `Bearer ${process.env.TEST_JWT}` },
+  });
+  expect(res.status()).toBe(200);
+});
+```
+
+<SectionTitle>Done When</SectionTitle>
+
+Your API smoke suite:
+- Covers all public routes (200 expected) and all invalid slug patterns (404 expected)
+- Runs in under 30 seconds
+- Is the first step in the CI pipeline — a smoke failure stops the expensive browser tests from running

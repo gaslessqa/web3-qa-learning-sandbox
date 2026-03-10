@@ -1,0 +1,115 @@
+---
+title: 'Gas Mechanics for QA Engineers'
+level: 'beginner'
+order: 9
+module: 'web3-qa-fundamentals'
+estimated_minutes: 20
+---
+
+<Callout type="info">
+  Gas is the fee users pay to execute transactions on Ethereum. As a QA engineer, you need to
+  understand gas mechanics to write meaningful tests and to recognise when a transaction fails
+  because of cost — not logic.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Understand how gas works, what can go wrong, and which gas-related scenarios your test plan must cover.
+
+<SectionTitle>What Is Gas?</SectionTitle>
+
+Every operation on the EVM (Ethereum Virtual Machine) costs a unit of **gas**. The total fee paid is:
+
+```
+fee = gasUsed × effectiveGasPrice
+```
+
+There are two parameters the sender controls:
+- **gasLimit** — maximum gas the transaction is allowed to consume. If execution uses more, it reverts with `out of gas`.
+- **maxFeePerGas / maxPriorityFeePerGas** — (EIP-1559) how much ETH per gas unit you are willing to pay.
+
+<SectionTitle>Key Terms for QA</SectionTitle>
+
+| Term | What it means |
+|------|---------------|
+| `gasLimit` | Maximum gas units allowed; set by the sender (or estimated by wallet) |
+| `gasUsed` | Actual units consumed — only known after execution |
+| `baseFee` | Protocol-set minimum per-block fee (burned); varies with demand |
+| `maxPriorityFeePerGas` | Tip to the validator — controls how quickly tx is included |
+| Out of Gas | Transaction reverts, no state changes, fee still charged |
+| Gas estimation | RPC call (`eth_estimateGas`) before signing — can be wrong under load |
+
+<SectionTitle>Why Gas Matters for Testing</SectionTitle>
+
+<Checklist>
+  <CheckItem>A rejected transaction (user cancelled) costs **zero gas** — wallet state rolls back</CheckItem>
+  <CheckItem>A reverted transaction (on-chain error) costs gas but produces no state change</CheckItem>
+  <CheckItem>An out-of-gas revert looks identical to a logic revert in the UI — you must distinguish them in tests</CheckItem>
+  <CheckItem>Gas estimation failures surface before the wallet prompt; test that error state too</CheckItem>
+  <CheckItem>Very high gas prices can cause "insufficient funds" even if ETH balance looks adequate</CheckItem>
+</Checklist>
+
+<SectionTitle>Gas-Related Test Scenarios</SectionTitle>
+
+```
+Scenario 1 — Normal flow
+  → User calls increment()
+  → Wallet estimates gas ≈ 30,000
+  → User signs, tx confirmed, gasUsed < gasLimit ✓
+
+Scenario 2 — Out of gas (engineered)
+  → Set gasLimit to 21000 (below function cost)
+  → Tx submitted, reverts with "out of gas"
+  → UI must show error, NOT show success
+
+Scenario 3 — Insufficient funds for gas
+  → Account has 0.001 ETH, gasPrice spike
+  → Wallet shows "insufficient funds"
+  → UI must catch and display wallet error message
+
+Scenario 4 — Gas estimation failure
+  → Call a function that would revert (e.g. reset() as non-owner)
+  → useSimulateContract returns error before signing
+  → Button stays disabled — no wallet prompt shown
+```
+
+<SectionTitle>How We Handle Gas in the Labs</SectionTitle>
+
+In the **ERC-20 Approve Lab** and **Hardhat Counter Lab**, we use `useSimulateContract` from wagmi
+before every write. This does two things:
+
+1. **Validates** the call would succeed (prevents sending a tx that will revert)
+2. **Prepares** the exact request object with gas estimate included
+
+```tsx
+const { data: sim } = useSimulateContract({
+  address: CONTRACT_ADDRESS,
+  abi: COUNTER_ABI,
+  functionName: 'increment',
+  account: address,
+});
+
+// sim.request has gasLimit pre-populated from eth_estimateGas
+writeContract(sim.request);
+```
+
+The button is disabled when `sim` is undefined — which happens when the simulation fails (wrong
+network, insufficient permissions, would revert, etc.).
+
+<SectionTitle>Testing Checklist for Gas Scenarios</SectionTitle>
+
+<Checklist>
+  <CheckItem>Happy path: gas estimated, tx confirmed, `gasUsed` visible in tx monitor</CheckItem>
+  <CheckItem>Simulation failure (access control): button disabled, no wallet prompt</CheckItem>
+  <CheckItem>Low ETH balance: wallet shows "insufficient funds" — UI captures error message</CheckItem>
+  <CheckItem>Correct gas display in UI: show formatted ETH cost, not raw wei</CheckItem>
+  <CheckItem>After revert: UI shows error state, count / balance unchanged</CheckItem>
+</Checklist>
+
+<SectionTitle>Done When</SectionTitle>
+
+You can explain the difference between:
+- A user **rejecting** a transaction (zero cost)
+- A transaction **reverting on-chain** (gas consumed, no state change)
+- A transaction **running out of gas** (a specific type of on-chain revert)
+
+And your test plan covers all three failure modes.

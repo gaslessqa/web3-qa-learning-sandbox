@@ -1,0 +1,100 @@
+# W3QA-59 — Playwright E2E CI Pipeline
+# Runs on every push to main and on PRs targeting main.
+# Uploads HTML report and JUnit XML as artifacts.
+
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+  PLAYWRIGHT_BASE_URL: http://localhost:3000
+
+jobs:
+  # ─── API Smoke + Navigation (no wallet, fast) ───────────────────────────────
+  e2e-core:
+    name: Core UI & API Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Build Next.js
+        run: npm run build
+        env:
+          NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID }}
+
+      - name: Start Next.js server
+        run: npm start &
+        env:
+          PORT: 3000
+
+      - name: Wait for server
+        run: npx wait-on http://localhost:3000 --timeout 30000
+
+      - name: Run API smoke tests
+        run: npx playwright test --project=api-smoke
+        working-directory: e2e
+
+      - name: Run navigation tests (chromium)
+        run: npx playwright test --project=chromium
+        working-directory: e2e
+
+      - name: Run navigation tests (firefox)
+        run: npx playwright test --project=firefox
+        working-directory: e2e
+
+      - name: Run mobile viewport tests
+        run: npx playwright test --project=mobile-chrome
+        working-directory: e2e
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: e2e/reports/html/
+          retention-days: 30
+
+      - name: Upload JUnit XML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results-${{ github.run_id }}
+          path: e2e/reports/junit.xml
+          retention-days: 30
+
+  # ─── Wallet E2E (MetaMask, headed Chromium, separate job) ──────────────────
+  # Disabled by default — requires METAMASK_PATH and seed in secrets.
+  # Uncomment when MetaMask extension is available in CI.
+  #
+  # wallet-e2e:
+  #   name: Wallet E2E (MetaMask)
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     ...
+  #     - name: Run wallet tests
+  #       run: npx playwright test --project=wallet-e2e
+  #       env:
+  #         METAMASK_PATH: ${{ secrets.METAMASK_PATH }}
+  #         METAMASK_SEED: ${{ secrets.METAMASK_SEED }}
+  #         METAMASK_PASSWORD: ${{ secrets.METAMASK_PASSWORD }}

@@ -1,0 +1,124 @@
+---
+title: 'Bug Triage & Root Cause Analysis'
+level: 'expert'
+order: 5
+module: 'qa-lead-track'
+estimated_minutes: 25
+---
+
+<Callout type="warning">
+  A bug report that says "transaction failed" is useless. A bug report that says "increment() reverts
+  with NotOwner on Sepolia at block 7,834,201 when called by 0x1234… — contract owner is 0x5678…"
+  is actionable in minutes.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Build a consistent triage and RCA process so every bug gets the right priority, the right owner,
+and a root-cause that prevents recurrence.
+
+<SectionTitle>Severity Framework</SectionTitle>
+
+| Severity | Definition | Examples | SLA |
+|----------|-----------|----------|-----|
+| P0 — Critical | Funds at risk, data loss, app completely broken | Exploit found, approval drains wallet | Immediate — block all work |
+| P1 — High | Core flow broken, no workaround | Tx always reverts, wallet won't connect | Fix in current sprint |
+| P2 — Medium | Degraded experience, workaround exists | Wrong error message, stale UI state | Next sprint |
+| P3 — Low | Cosmetic, minor UX | Typo, colour mismatch, alignment | Backlog |
+
+<SectionTitle>Web3-Specific Triage Signals</SectionTitle>
+
+When a bug comes in, ask these questions before assigning severity:
+
+<Checklist>
+  <CheckItem>**Can funds be lost?** If yes → P0 regardless of reproduction rate</CheckItem>
+  <CheckItem>**Is on-chain state corrupted?** Immutable chains mean you can't roll back — P0 or P1</CheckItem>
+  <CheckItem>**Which layer is broken?** Contract logic / RPC / wallet / UI — owner differs for each</CheckItem>
+  <CheckItem>**Is it reproducible on a pinned block?** If yes, attach block number to the ticket</CheckItem>
+  <CheckItem>**Does it only affect one wallet / browser?** Narrows the scope significantly</CheckItem>
+</Checklist>
+
+<SectionTitle>Bug Report Template</SectionTitle>
+
+```markdown
+## Bug: [Short title — function, expected vs actual]
+
+**Severity:** P[0-3]
+**Layer:** Contract | RPC | Wallet | UI
+**Network:** Mainnet / Sepolia / Hardhat local (block #)
+**Wallet:** MetaMask 11.x / WalletConnect 2.x
+**Browser:** Chrome 121 / Firefox 122
+
+### Steps to Reproduce
+1. Connect wallet [address] on [network]
+2. Call [function] with args [...]
+3. [Exact action]
+
+### Expected
+[What should happen — reference AC]
+
+### Actual
+[What happened — include tx hash, error message, screenshot]
+
+### On-Chain Evidence
+- Tx Hash: 0x...
+- Block: 7,834,201
+- Revert reason: "NotOwner" (custom error)
+- Contract address: 0x...
+
+### Root Cause Hypothesis
+[Initial guess at which layer and why]
+```
+
+<SectionTitle>Root Cause Analysis (5 Whys for Web3)</SectionTitle>
+
+Example walkthrough:
+
+```
+Bug: "Approve button stays disabled after simulation"
+
+Why 1: Button is disabled because simIncrement.request is undefined
+Why 2: useSimulateContract returns undefined when query.enabled = false
+Why 3: enabled = false because isOnSepolia = false
+Why 4: chainId = 1 (mainnet) but code checks for 11155111 (Sepolia)
+Why 5: User switched to mainnet to check balance and never switched back
+
+Root Cause: No automatic network switch prompt when user lands on lab page
+Fix: Add <NetworkWarning /> component that prompts switch to Sepolia
+Prevention: Add test case — "connect on wrong network → button disabled + warning shown"
+```
+
+<SectionTitle>RCA Output Template</SectionTitle>
+
+```markdown
+## RCA: [Bug ID] — [Title]
+
+**Root Cause:** [Single sentence — the actual technical reason]
+**Layer:** [Contract / RPC / Wallet integration / UI state]
+**Contributing Factor:** [What made the bug possible — missing test? Missing validation?]
+
+### Fix
+[What was changed]
+
+### Prevention
+[ ] New test case added: [description]
+[ ] Checklist item added to [pre-release / PR template / AC template]
+[ ] Monitoring alert added for [metric]
+```
+
+<SectionTitle>Triage Process</SectionTitle>
+
+<Steps>
+  <Step>Bug reported — QA Lead assigns initial severity within 2h of report</Step>
+  <Step>Reproduction — QA engineer reproduces on staging, captures tx hash and exact error</Step>
+  <Step>Layer identification — narrow to contract / RPC / wallet / UI</Step>
+  <Step>Owner assignment — contract bugs → dev, UI bugs → frontend, wallet bugs → integration dev</Step>
+  <Step>Fix verified — QA engineer confirms fix on staging with the original reproduction steps</Step>
+  <Step>RCA documented — root cause, fix, and at least one new test case or checklist item</Step>
+</Steps>
+
+<SectionTitle>Done When</SectionTitle>
+
+Your team has:
+- A severity matrix that everyone agrees on
+- A bug template in your issue tracker (Jira / Linear / GitHub Issues)
+- A process where every P0/P1 includes a completed RCA before the ticket closes

@@ -1,0 +1,86 @@
+---
+title: 'QA Strategy for Web3 Projects'
+level: 'expert'
+order: 1
+module: 'qa-lead-track'
+estimated_minutes: 35
+---
+
+<Callout type="info">
+  Web3 QA requires a different mental model than traditional web QA. The "backend" is a public
+  blockchain — immutable, decentralized, and adversarial. Your test strategy must cover both the
+  off-chain UI and the on-chain state.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Build a comprehensive QA strategy for a dApp, covering risk areas, test levels, and team processes
+that are specific to Web3.
+
+<SectionTitle>The Web3 Risk Map</SectionTitle>
+
+Before building a test strategy, map your risk areas:
+
+**Layer 1 — Smart Contracts (on-chain)**
+- Logic errors (wrong calculations, bad access control)
+- Reentrancy and other well-known attack vectors
+- Gas limit issues (DoS via block gas limit)
+- Upgrade proxy corruption
+
+**Layer 2 — RPC / Indexer**
+- Rate limits (429) and timeouts
+- Stale data from behind-nodes
+- Indexer lag vs on-chain truth
+
+**Layer 3 — Wallet Integration**
+- MetaMask and WalletConnect edge cases
+- Rejection, timeout, network mismatch
+- Session persistence across page reloads
+
+**Layer 4 — UI / UX**
+- Loading and error states for every async operation
+- Correct formatting of on-chain data (decimals, addresses)
+- Responsive wallet UI on mobile
+
+<SectionTitle>Test Pyramid for dApps</SectionTitle>
+
+```
+         /\
+        /E2E\        ← Playwright + Synpress (wallet automation)
+       /------\
+      / Integr. \    ← Contract interaction tests (Hardhat/Foundry)
+     /------------\
+    /  Unit Tests  \ ← Smart contract unit tests + UI component tests
+   /--------------/
+```
+
+- **Unit**: Solidity unit tests (Hardhat/Foundry), React component tests (Vitest)
+- **Integration**: Deploy to local Hardhat, test full dApp flows without real wallets
+- **E2E**: Playwright + Synpress for MetaMask flows on testnet
+
+<SectionTitle>Coverage Requirements</SectionTitle>
+
+<Checklist>
+  <CheckItem>Smart contracts: 100% line coverage for business-critical functions</CheckItem>
+  <CheckItem>Happy path E2E: connect → action → confirm → verify on-chain</CheckItem>
+  <CheckItem>Rejection paths: user cancel, wallet errors, RPC failure</CheckItem>
+  <CheckItem>Network switching: wrong network detection and recovery</CheckItem>
+  <CheckItem>State transitions: pending → confirmed → failed for every write action</CheckItem>
+  <CheckItem>Revert scenarios: each require/revert reason tested at contract level</CheckItem>
+  <CheckItem>Access control: unauthorized callers correctly rejected</CheckItem>
+</Checklist>
+
+<SectionTitle>Triage Priority Matrix</SectionTitle>
+
+| Severity | Example | Response |
+|----------|---------|----------|
+| P0 — Critical | Funds at risk, contract exploitable | Block release, immediate fix |
+| P1 — High | Transaction silently fails, wrong amount | Block release |
+| P2 — Medium | Loading state missing, wrong error message | Fix in current sprint |
+| P3 — Low | Minor UI misalignment, suboptimal copy | Backlog |
+
+<SectionTitle>Done When</SectionTitle>
+
+Your team has:
+- A risk register covering all 4 layers above
+- A test pyramid with automation targets per layer
+- A severity matrix aligned with the release process

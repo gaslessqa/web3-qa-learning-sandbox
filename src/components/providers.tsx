@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 import { AuthProvider } from '@/contexts/auth-context';
+import { TxMonitorProvider } from '@/contexts/tx-monitor-context';
 import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { config as wagmiConfig } from '@/lib/wagmi';
@@ -31,7 +32,9 @@ export function Providers({ children }: ProvidersProps) {
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <TxMonitorProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </TxMonitorProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

@@ -1,0 +1,136 @@
+---
+title: 'Wallet Matrix Test Harness'
+level: 'expert'
+order: 3
+module: 'expert-automation'
+estimated_minutes: 25
+---
+
+<Callout type="info">
+  Real users connect with MetaMask, WalletConnect, Coinbase Wallet, and others. A wallet matrix
+  harness lets you run the same test suite against all of them — without duplicating test code.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Design a parameterised test harness where wallet-agnostic test logic runs once but executes across
+multiple wallet configurations.
+
+<SectionTitle>The Matrix Pattern</SectionTitle>
+
+```typescript
+// e2e/tests/wallet-connect.spec.ts
+
+const walletMatrix = [
+  {
+    wallet: 'MetaMask',
+    network: 'Sepolia',
+    chainId: 11155111,
+    connectFn: connectMetaMask,
+  },
+  {
+    wallet: 'MetaMask',
+    network: 'Hardhat Local',
+    chainId: 31337,
+    connectFn: connectMetaMaskToHardhat,
+  },
+  // Future: WalletConnect, Coinbase Wallet, etc.
+];
+
+for (const scenario of walletMatrix) {
+  test.describe(`[W3QA-57] ${scenario.wallet} on ${scenario.network}`, () => {
+    test('connects and shows address', async ({ page, context }) => {
+      await scenario.connectFn(page, context);
+      await expect(page.locator('button:has-text("0x")')).toBeVisible();
+    });
+
+    test('switches to correct network', async ({ page, context }) => {
+      await scenario.connectFn(page, context);
+      // Network chip in UI should show the correct network name
+      await expect(page.getByText(scenario.network)).toBeVisible();
+    });
+  });
+}
+```
+
+The `for...of` loop drives the matrix — one `describe` block per combination.
+Each inner test is fully independent.
+
+<SectionTitle>Wallet Connector Functions</SectionTitle>
+
+Each wallet type gets its own connector function — the same interface, different implementation:
+
+```typescript
+// Connect via MetaMask extension
+async function connectMetaMask(page: Page, context: BrowserContext) {
+  await page.goto('/labs/erc20-inspector');
+  await page.getByRole('button', { name: /connect wallet/i }).click();
+  await page.getByText('MetaMask').click();
+
+  const mmPopup = await context.waitForEvent('page', {
+    predicate: p => p.url().includes('notification'),
+    timeout: 10_000,
+  });
+  await mmPopup.getByTestId('page-container-footer-next').click();
+  await mmPopup.getByTestId('page-container-footer-next').click();
+  await mmPopup.waitForEvent('close');
+  await page.bringToFront();
+}
+
+// Connect via WalletConnect (requires real device or WalletConnect mock)
+async function connectWalletConnect(page: Page, _context: BrowserContext) {
+  await page.goto('/labs/erc20-inspector');
+  await page.getByRole('button', { name: /connect wallet/i }).click();
+  await page.getByText('WalletConnect').click();
+  // WalletConnect opens QR code modal — scan with phone or use mock
+  // For CI: use a WalletConnect mock server (e.g. wallet-connect-mock)
+  await page.getByTestId('wc-qr-code').waitFor({ timeout: 5_000 });
+  // ... pairing logic
+}
+```
+
+<SectionTitle>Tagging for Matrix Reports</SectionTitle>
+
+Playwright's HTML report shows the full test name including the `describe` label, giving you
+a matrix view across wallets and networks:
+
+```
+✓ [W3QA-57] MetaMask on Sepolia › connects and shows address        (1.2s)
+✓ [W3QA-57] MetaMask on Sepolia › switches to correct network       (0.8s)
+✓ [W3QA-57] MetaMask on Hardhat Local › connects and shows address  (0.9s)
+✗ [W3QA-57] MetaMask on Hardhat Local › switches to correct network (failed)
+```
+
+This makes it immediately clear which wallet/network combination is broken.
+
+<SectionTitle>Skipping Unavailable Wallets in CI</SectionTitle>
+
+```typescript
+// Skip wallet scenarios that require setup not available in CI
+test.skip(
+  () => !process.env.METAMASK_PATH,
+  'METAMASK_PATH not set — skipping wallet E2E'
+);
+```
+
+Use `test.skip` with a condition rather than commenting out — the test stays in the report
+as "skipped" with a reason, not silently absent.
+
+<SectionTitle>Coverage Matrix for Release</SectionTitle>
+
+Before each release, verify this matrix is green:
+
+```
+Wallet          | Connect | Tx Sign | Reject | Network Switch
+─────────────────────────────────────────────────────────────
+MetaMask        |   ✓     |   ✓     |   ✓    |   ✓
+WalletConnect   |   ✓     |   ✗ P1  |   ✓    |   —
+Coinbase Wallet |   ✓     |   —     |   —    |   —
+─────────────────────────────────────────────────────────────
+```
+
+Any `✗` is a blocker. Any `—` means not yet tested — add it to the sprint.
+
+<SectionTitle>Done When</SectionTitle>
+
+Your test suite has at least two wallet/network combinations in the matrix and the `for...of`
+loop drives them without any duplicated test logic.

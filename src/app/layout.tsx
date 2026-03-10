@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Providers } from '@/components/providers';
 import { Navbar } from '@/components/navbar';
+import { NetworkWarning } from '@/components/network-warning';
 import './globals.css';
 import '@rainbow-me/rainbowkit/styles.css';
 
@@ -21,6 +22,7 @@ export default function RootLayout({
       <body className="antialiased">
         <Providers>
           <Navbar />
+          <NetworkWarning />
           {children}
         </Providers>
       </body>

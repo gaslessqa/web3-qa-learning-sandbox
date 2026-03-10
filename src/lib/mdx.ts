@@ -3,7 +3,8 @@ import path from 'node:path';
 import matter from 'gray-matter';
 import { compileMDX } from 'next-mdx-remote/rsc';
 import remarkGfm from 'remark-gfm';
-import { Callout, Checklist, Steps, SectionTitle } from '@/components/mdx';
+import rehypePrettyCode from 'rehype-pretty-code';
+import { Callout, Checklist, CheckItem, Steps, Step, SectionTitle } from '@/components/mdx';
 
 const CONTENT_ROOT = path.join(process.cwd(), 'src', 'content');
 
@@ -32,12 +33,23 @@ export async function loadMdxByContentPath(contentPath: string): Promise<LoadedM
     components: {
       Callout,
       Checklist,
+      CheckItem,
       Steps,
+      Step,
       SectionTitle,
     },
     options: {
       mdxOptions: {
         remarkPlugins: [remarkGfm],
+        rehypePlugins: [
+          [
+            rehypePrettyCode,
+            {
+              theme: 'github-dark',
+              // keepBackground defaults to false — background controlled via CSS
+            },
+          ],
+        ],
       },
     },
   });

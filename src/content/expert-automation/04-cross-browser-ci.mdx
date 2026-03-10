@@ -1,0 +1,134 @@
+---
+title: 'Cross-Browser & Responsive Tests in CI'
+level: 'expert'
+order: 4
+module: 'expert-automation'
+estimated_minutes: 20
+---
+
+<Callout type="info">
+  Web3 dApps must work across Chrome, Firefox, and mobile viewports. Playwright makes multi-browser
+  test runs trivially easy — the challenge is keeping CI fast and reports readable.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Run the same test suite across multiple browsers and viewport sizes in CI, with clear failure
+attribution and controlled execution time.
+
+<SectionTitle>Playwright Projects for Multi-Browser</SectionTitle>
+
+The `playwright.config.ts` in this project defines separate projects per browser/viewport:
+
+```typescript
+projects: [
+  // Desktop browsers — run non-wallet tests
+  {
+    name: 'chromium',
+    use: { ...devices['Desktop Chrome'] },
+    testMatch: /(?!.*wallet).*\.spec\.ts/,
+  },
+  {
+    name: 'firefox',
+    use: { ...devices['Desktop Firefox'] },
+    testMatch: /(?!.*wallet).*\.spec\.ts/,
+  },
+
+  // Mobile viewport (Pixel 5, 393×851)
+  {
+    name: 'mobile-chrome',
+    use: { ...devices['Pixel 5'] },
+    testMatch: /responsive\.spec\.ts/,
+  },
+],
+```
+
+Each project runs **independently** — a Chromium failure does not affect the Firefox run.
+Reports show which browser each test ran on.
+
+<SectionTitle>Writing Responsive Tests</SectionTitle>
+
+```typescript
+// e2e/tests/responsive.spec.ts
+import { test, expect } from '@playwright/test';
+
+test('[W3QA-58] no horizontal overflow on mobile', async ({ page }) => {
+  await page.goto('/labs');
+
+  const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
+  const viewportWidth = page.viewportSize()?.width ?? 393;
+
+  // Allow 1px tolerance for sub-pixel rendering
+  expect(bodyWidth).toBeLessThanOrEqual(viewportWidth + 1);
+});
+
+test('[W3QA-58] lab card is readable on mobile', async ({ page }) => {
+  await page.goto('/labs');
+  const card = page.locator('a[href="/labs/erc20-inspector"]');
+  await expect(card).toBeVisible();
+
+  const box = await card.boundingBox();
+  expect(box?.width).toBeGreaterThan(280); // minimum readable width
+});
+```
+
+<SectionTitle>Browser-Specific Assertions</SectionTitle>
+
+Some Web3 features differ across browsers (e.g. clipboard API). Use `browserName` to conditionally
+skip or assert:
+
+```typescript
+test('clipboard copy of tx hash', async ({ page, browserName }) => {
+  test.skip(browserName === 'firefox', 'Clipboard API requires HTTPS in Firefox');
+  await page.goto('/labs/tx-lifecycle');
+  // ... test clipboard copy button
+});
+```
+
+<SectionTitle>CI Configuration</SectionTitle>
+
+From `.github/workflows/e2e.yml`:
+
+```yaml
+- name: Install browsers
+  run: npx playwright install --with-deps chromium firefox
+
+- name: Run chromium tests
+  run: npx playwright test --project=chromium
+  working-directory: e2e
+
+- name: Run firefox tests
+  run: npx playwright test --project=firefox
+  working-directory: e2e
+
+- name: Run mobile tests
+  run: npx playwright test --project=mobile-chrome
+  working-directory: e2e
+```
+
+Run browser projects in **separate CI steps**, not a single command. This gives you:
+- Independent failure signals per browser
+- The ability to retry one browser without re-running others
+- Clear step names in the GitHub Actions summary
+
+<SectionTitle>Performance — Keeping CI Under 15 Minutes</SectionTitle>
+
+<Checklist>
+  <CheckItem>Only run `mobile-chrome` on responsive.spec.ts — not the full suite (saves ~3 min)</CheckItem>
+  <CheckItem>Use `workers: 4` on CI for non-wallet tests (parallel execution)</CheckItem>
+  <CheckItem>Cache `~/.cache/ms-playwright` between CI runs with `actions/cache`</CheckItem>
+  <CheckItem>Use `--shard` flag for very large suites: `--shard=1/3`, `--shard=2/3`, `--shard=3/3`</CheckItem>
+</Checklist>
+
+```yaml
+# Cache Playwright browser binaries
+- name: Cache Playwright browsers
+  uses: actions/cache@v4
+  with:
+    path: ~/.cache/ms-playwright
+    key: playwright-${{ hashFiles('package-lock.json') }}
+```
+
+<SectionTitle>Done When</SectionTitle>
+
+Your CI pipeline runs tests on at least 2 browsers + 1 mobile viewport, with each project in
+a separate step and a combined HTML report uploaded as an artifact.

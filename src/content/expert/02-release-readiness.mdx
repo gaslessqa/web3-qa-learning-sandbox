@@ -1,0 +1,74 @@
+---
+title: 'Release Readiness Framework'
+level: 'expert'
+order: 2
+module: 'qa-lead-track'
+estimated_minutes: 30
+---
+
+<Callout type="warning">
+  Shipping a buggy smart contract is not like shipping a buggy web app. On-chain logic is
+  immutable (without an upgrade proxy) and bugs can result in permanent loss of funds. Your
+  go/no-go criteria must be stricter than in traditional software.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Define and enforce go/no-go criteria for Web3 releases that cover both the smart contract layer
+and the off-chain application.
+
+<SectionTitle>Pre-Release Checklist — Smart Contracts</SectionTitle>
+<Checklist>
+  <CheckItem>All unit tests pass (Hardhat or Foundry), 100% coverage on critical paths</CheckItem>
+  <CheckItem>Static analysis clean (Slither / Aderyn) — no high/critical findings</CheckItem>
+  <CheckItem>External audit completed and all critical/high issues resolved</CheckItem>
+  <CheckItem>Upgrade proxy (if any) tested: upgrade path does not corrupt storage layout</CheckItem>
+  <CheckItem>Access control review: onlyOwner, roles, and pausing functions verified</CheckItem>
+  <CheckItem>Emergency pause / circuit breaker tested and verified operable</CheckItem>
+  <CheckItem>Deployment script dry-run on mainnet fork with no errors</CheckItem>
+  <CheckItem>Deployed addresses verified on Etherscan (source code verified)</CheckItem>
+</Checklist>
+
+<SectionTitle>Pre-Release Checklist — dApp (Off-chain)</SectionTitle>
+<Checklist>
+  <CheckItem>All E2E tests passing on staging (Sepolia or mainnet fork)</CheckItem>
+  <CheckItem>Happy paths tested: connect, transact, confirm, state reflects on-chain result</CheckItem>
+  <CheckItem>All rejection and error states covered: user cancel, revert, RPC failure</CheckItem>
+  <CheckItem>Network mismatch detected and recovery tested</CheckItem>
+  <CheckItem>Performance: wallet prompt appears within 2s of user action</CheckItem>
+  <CheckItem>Explorer links correct for mainnet (not Sepolia)</CheckItem>
+  <CheckItem>Token decimals formatted correctly (no raw uint256 shown to users)</CheckItem>
+  <CheckItem>RPC endpoint updated from testnet to mainnet — verified in config</CheckItem>
+</Checklist>
+
+<SectionTitle>Go/No-Go Decision Framework</SectionTitle>
+
+```
+┌──────────────────────────────────────────────────┐
+│  HARD BLOCKS (no-go regardless of deadline)      │
+│  • Any unresolved critical/high audit finding     │
+│  • Funds can be drained by unauthorized caller   │
+│  • E2E happy path fails on staging               │
+├──────────────────────────────────────────────────┤
+│  SOFT BLOCKS (require QA Lead sign-off)          │
+│  • P2 bugs open without mitigation plan          │
+│  • Coverage below agreed threshold               │
+│  • Performance regression vs previous release    │
+└──────────────────────────────────────────────────┘
+```
+
+<SectionTitle>Post-Deploy Monitoring (First 48h)</SectionTitle>
+
+<Steps>
+  <Step>Monitor contract events in real-time (The Graph / custom indexer)</Step>
+  <Step>Watch for unexpected Revert events or large value transfers</Step>
+  <Step>Track RPC error rates in frontend monitoring (Sentry / Datadog)</Step>
+  <Step>Have emergency pause key ready and tested — know who holds it</Step>
+  <Step>Run smoke test suite against mainnet contract addresses</Step>
+</Steps>
+
+<SectionTitle>Done When</SectionTitle>
+
+You have a release checklist document that:
+- Is reviewed and signed off by QA Lead, dev lead, and security reviewer
+- Includes explicit go/no-go criteria with no ambiguity
+- Is linked from your CI/CD pipeline before any production deployment

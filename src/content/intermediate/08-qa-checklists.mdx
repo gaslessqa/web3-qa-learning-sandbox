@@ -1,0 +1,82 @@
+---
+title: 'QA Checklists for Web3 dApps'
+level: 'intermediate'
+order: 8
+module: 'tx-lifecycle-reverts'
+estimated_minutes: 20
+---
+
+<Callout type="info">
+  Checklists are a QA engineer's first line of defence. A well-structured checklist turns
+  institutional knowledge into a repeatable, reviewable artefact that survives team turnover.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Walk away with ready-to-use checklists covering wallet integration, transaction flows, event
+verification, and error handling for any Web3 dApp.
+
+<SectionTitle>Wallet Integration Checklist</SectionTitle>
+
+<Checklist>
+  <CheckItem>MetaMask connects — address displayed correctly (truncated + full on hover)</CheckItem>
+  <CheckItem>WalletConnect connects from mobile — pairing QR shown, session established</CheckItem>
+  <CheckItem>Wrong network detected — banner shown with switch-network prompt</CheckItem>
+  <CheckItem>Network switched via UI — chainId updates, RPC URL resolves correctly</CheckItem>
+  <CheckItem>Wallet disconnected — address cleared, connect button restored</CheckItem>
+  <CheckItem>Page refresh with wallet connected — session restored (wagmi persistence)</CheckItem>
+  <CheckItem>Multiple accounts in MetaMask — switching account reflects correct address</CheckItem>
+  <CheckItem>MetaMask locked mid-session — app handles gracefully, re-prompts connect</CheckItem>
+</Checklist>
+
+<SectionTitle>Transaction Flow Checklist</SectionTitle>
+
+<Checklist>
+  <CheckItem>Write button disabled until wallet connected AND on correct network</CheckItem>
+  <CheckItem>Gas estimation shown before wallet prompt (or button disabled on estimate failure)</CheckItem>
+  <CheckItem>User signs: `isPending` state visible (loading spinner / disabled button)</CheckItem>
+  <CheckItem>Transaction confirmed: on-chain state updates reflected in UI</CheckItem>
+  <CheckItem>User rejects in wallet: error cleared, UI reset to idle — no stale spinner</CheckItem>
+  <CheckItem>On-chain revert: error message shown with revert reason (not raw hex)</CheckItem>
+  <CheckItem>Out-of-gas revert: distinguishable error message (not generic "transaction failed")</CheckItem>
+  <CheckItem>Tx hash shown with Etherscan link for testnet/mainnet transactions</CheckItem>
+  <CheckItem>Double-submission prevention: button disabled while tx is in-flight</CheckItem>
+</Checklist>
+
+<SectionTitle>Event & State Verification Checklist</SectionTitle>
+
+<Checklist>
+  <CheckItem>After confirmed tx: relevant read calls (`balanceOf`, `count`, etc.) are refetched</CheckItem>
+  <CheckItem>Events emitted in receipt match expected event names and parameter values</CheckItem>
+  <CheckItem>Indexed event args (addresses) match the acting wallet address</CheckItem>
+  <CheckItem>Non-indexed numeric values decoded from raw uint256 with correct decimals</CheckItem>
+  <CheckItem>Multiple events in one receipt all decoded and displayed</CheckItem>
+  <CheckItem>Event absence on a revert: no spurious events emitted when tx reverts</CheckItem>
+</Checklist>
+
+<SectionTitle>Error Handling Checklist</SectionTitle>
+
+<Checklist>
+  <CheckItem>RPC timeout: loading state clears, user-facing error message shown</CheckItem>
+  <CheckItem>Rate limit (429): back-off or helpful message — not an unhandled exception</CheckItem>
+  <CheckItem>Contract not deployed at address: graceful error, not an app crash</CheckItem>
+  <CheckItem>Invalid address input: validated before submission (not silently ignored)</CheckItem>
+  <CheckItem>Insufficient balance for transfer: wallet or UI surface the reason</CheckItem>
+  <CheckItem>Access-control revert (e.g. `onlyOwner`): clear "not authorised" message</CheckItem>
+</Checklist>
+
+<SectionTitle>Pre-Release Final Check</SectionTitle>
+
+```
+□  All checklist items above pass on staging (Sepolia or mainnet fork)
+□  Tested in Chrome + Firefox (at minimum)
+□  Tested on mobile viewport (MetaMask mobile or WalletConnect)
+□  Explorer links point to correct network (mainnet vs Sepolia)
+□  Token amounts formatted with correct decimals (no raw uint256 shown)
+□  No console errors in production build
+□  RPC endpoint is production-grade (Alchemy/Infura, not public node)
+```
+
+<SectionTitle>Done When</SectionTitle>
+
+You have adapted these checklists to your specific project, added any project-specific items,
+and used them as the acceptance criteria for your next release review.

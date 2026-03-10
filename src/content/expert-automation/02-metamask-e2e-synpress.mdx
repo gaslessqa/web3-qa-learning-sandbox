@@ -1,0 +1,175 @@
+---
+title: 'MetaMask E2E with Synpress'
+level: 'expert'
+order: 2
+module: 'expert-automation'
+estimated_minutes: 35
+---
+
+<Callout type="warning">
+  Automating MetaMask requires running Chrome (not Chromium) in headed mode with the extension
+  loaded. This is the biggest source of E2E complexity in Web3 QA. The pattern below gives you
+  a stable, reproducible setup.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Automate MetaMask wallet flows end-to-end using Playwright with a custom fixture — covering connect,
+approve transaction, and reject scenarios.
+
+<SectionTitle>Why Not Just Use Synpress Directly?</SectionTitle>
+
+**Synpress** (https://github.com/Synthetixio/synpress) is the standard MetaMask Playwright wrapper.
+It abstracts MetaMask internals into a clean API. However:
+
+- v4 (latest) is still evolving and may have breaking changes
+- It adds a heavy dependency with its own config system
+- For learning purposes, understanding the raw fixture pattern is more valuable
+
+This lesson teaches **both** the raw fixture and the Synpress approach so you understand what each
+layer of abstraction is doing.
+
+<SectionTitle>The Core Problem: Multi-Page Contexts</SectionTitle>
+
+When MetaMask is triggered (connect, sign, approve), it opens a **new popup window** — a separate
+Playwright `Page`. Your test must:
+
+1. Click the action in the dApp page
+2. Switch focus to the MetaMask popup
+3. Click approve / reject in the popup
+4. Switch back to the dApp page
+
+```typescript
+// Pattern: handle MetaMask popup
+async function approveInMetaMask(context: BrowserContext) {
+  // MetaMask popup opens as a new page
+  const mmPopup = await context.waitForEvent('page', {
+    predicate: (p) => p.url().includes('notification'),
+    timeout: 10_000,
+  });
+
+  await mmPopup.bringToFront();
+  await mmPopup.getByTestId('page-container-footer-next').click();
+  await mmPopup.waitForEvent('close');
+}
+```
+
+<SectionTitle>Raw Fixture Pattern (from e2e/fixtures/wallet.ts)</SectionTitle>
+
+The project includes `e2e/fixtures/wallet.ts` which:
+
+1. Launches `chromium.launchPersistentContext` with MetaMask loaded as an unpacked extension
+2. Waits for the MetaMask onboarding page to appear
+3. Completes onboarding with a test seed phrase
+4. Exports a `test` function that includes `{ page, metamaskPage }` fixtures
+
+```typescript
+import { test, expect } from '../fixtures/wallet';
+
+test('[W3QA-56] connects MetaMask to dApp', async ({ page, metamaskPage }) => {
+  await page.goto('/labs/erc20-inspector');
+
+  // Click ConnectButton
+  await page.getByRole('button', { name: /connect wallet/i }).click();
+  await page.getByText('MetaMask').click();
+
+  // Approve connection in MetaMask
+  await metamaskPage.bringToFront();
+  await metamaskPage.getByTestId('page-container-footer-next').click();
+  await metamaskPage.getByTestId('page-container-footer-next').click();
+
+  await page.bringToFront();
+  await expect(page.locator('button:has-text("0x")')).toBeVisible({ timeout: 10_000 });
+});
+```
+
+<SectionTitle>Synpress v4 Approach (Alternative)</SectionTitle>
+
+```bash
+npm install --save-dev @synthetixio/synpress
+```
+
+```typescript
+// With Synpress, MetaMask actions are wrapped:
+import { testWithSynpress, MetaMask } from '@synthetixio/synpress';
+
+const test = testWithSynpress({ metamask: MetaMask });
+
+test('[W3QA-56] connects via Synpress', async ({ page, metamask }) => {
+  await page.goto('/labs/erc20-inspector');
+  await page.getByRole('button', { name: /connect wallet/i }).click();
+  await metamask.connectToDapp(); // ← Synpress handles the popup
+  await expect(page.locator('button:has-text("0x")')).toBeVisible();
+});
+
+test('[W3QA-56] signs a transaction', async ({ page, metamask }) => {
+  // After connecting...
+  await page.getByRole('button', { name: /approve/i }).click();
+  await metamask.confirmTransaction(); // ← Synpress handles confirm popup
+});
+```
+
+<SectionTitle>Environment Setup</SectionTitle>
+
+```bash
+# Required env vars (add to .env.local or CI secrets):
+METAMASK_PATH=/path/to/metamask-chrome-12.x.x   # unpacked extension directory
+METAMASK_SEED="test test test test test test test test test test test junk"
+METAMASK_PASSWORD=TestPassword123!
+
+# Download MetaMask unpacked:
+# https://github.com/MetaMask/metamask-extension/releases
+# Download metamask-chrome-x.x.x.zip → extract to e2e/extensions/metamask/
+```
+
+<SectionTitle>Test: Happy Path Connect + Disconnect</SectionTitle>
+
+```typescript
+test('[W3QA-7] connect → verify address → disconnect', async ({ page, metamaskPage }) => {
+  await page.goto('/');
+
+  // Connect
+  await page.getByRole('button', { name: /connect wallet/i }).click();
+  await page.getByText('MetaMask').click();
+  await metamaskPage.bringToFront();
+  await metamaskPage.getByTestId('page-container-footer-next').click();
+  await metamaskPage.getByTestId('page-container-footer-next').click();
+  await page.bringToFront();
+
+  // Verify truncated address visible
+  const addressBtn = page.locator('button:has-text("0x")');
+  await expect(addressBtn).toBeVisible({ timeout: 10_000 });
+
+  // Disconnect via RainbowKit menu
+  await addressBtn.click();
+  await page.getByRole('button', { name: /disconnect/i }).click();
+
+  // Address no longer shown
+  await expect(page.getByRole('button', { name: /connect wallet/i })).toBeVisible();
+});
+```
+
+<SectionTitle>Test: User Rejection</SectionTitle>
+
+```typescript
+test('[W3QA-10] user rejects connection — app stays disconnected', async ({ page, metamaskPage }) => {
+  await page.goto('/labs/erc20-approve');
+  await page.getByRole('button', { name: /connect wallet/i }).click();
+  await page.getByText('MetaMask').click();
+
+  await metamaskPage.bringToFront();
+  // Click "Cancel" instead of "Next"
+  await metamaskPage.getByRole('button', { name: /cancel/i }).click();
+  await page.bringToFront();
+
+  // App must show disconnected state — no address, ConnectButton restored
+  await expect(page.getByRole('button', { name: /connect wallet/i })).toBeVisible({ timeout: 5_000 });
+  await expect(page.locator('button:has-text("0x")')).not.toBeVisible();
+});
+```
+
+<SectionTitle>Done When</SectionTitle>
+
+You have:
+- MetaMask extension loaded in CI (or locally via `METAMASK_PATH`)
+- At least one passing wallet E2E test covering connect + address display
+- At least one test covering user rejection — app resets to disconnected state

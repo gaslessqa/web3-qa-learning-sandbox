@@ -1,0 +1,133 @@
+---
+title: 'WalletConnect Testing on Real Devices'
+level: 'expert'
+order: 1
+module: 'cross-device-mobile'
+estimated_minutes: 30
+---
+
+<Callout type="info">
+  WalletConnect is the primary connection method for mobile users. Unlike MetaMask extension, it
+  relies on a QR-code pairing flow and a relay server — both introduce failure modes that
+  desktop-only testing completely misses.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Test WalletConnect pairing, transaction signing, reconnect, and session expiry using a real
+mobile device — covering the failure paths desktop E2E tests cannot reach.
+
+<SectionTitle>How WalletConnect Works (QA Mental Model)</SectionTitle>
+
+```
+Browser (dApp)                  Relay Server              Mobile Wallet App
+     │                               │                          │
+     │──── 1. Generate topic ────────▶│                          │
+     │◀─── 2. QR code URI ──────────│                          │
+     │                               │◀─── 3. Scan QR ─────────│
+     │◀─── 4. Pairing complete ──────│──────────────────────────│
+     │                               │                          │
+     │──── 5. Send tx request ───────▶│──────────────────────────▶│
+     │                               │◀─── 6. Approve tx ───────│
+     │◀─── 7. Signed tx ─────────────│                          │
+```
+
+Each arrow is a potential failure point. Your test plan must cover them.
+
+<SectionTitle>Pre-Requisites</SectionTitle>
+
+<Checklist>
+  <CheckItem>Physical iOS or Android device with MetaMask Mobile, Rainbow, or Coinbase Wallet installed</CheckItem>
+  <CheckItem>Both device and dev machine on the same WiFi network (or use ngrok for remote testing)</CheckItem>
+  <CheckItem>A staging URL accessible from the phone (ngrok: `npx ngrok http 3000`)</CheckItem>
+  <CheckItem>WalletConnect Project ID from cloud.walletconnect.com in `.env.local`</CheckItem>
+  <CheckItem>Test wallet loaded with Sepolia ETH from faucet (faucets.chain.link)</CheckItem>
+</Checklist>
+
+<SectionTitle>Manual Test Protocol</SectionTitle>
+
+**Test 1: Happy Path Pairing**
+<Steps>
+  <Step>Open the dApp on your desktop browser (or point phone to ngrok URL)</Step>
+  <Step>Click "Connect Wallet" → select "WalletConnect" → QR code appears</Step>
+  <Step>Open MetaMask Mobile → Scan QR (tap the scan icon in the top bar)</Step>
+  <Step>Approve the connection on mobile — wallet app shows dApp name and requested permissions</Step>
+  <Step>Desktop: address appears in navbar within 5s → PASS</Step>
+</Steps>
+
+**Test 2: Transaction Signing**
+<Steps>
+  <Step>With WalletConnect session active, trigger a write action on the dApp</Step>
+  <Step>Mobile: notification appears (or push notification if enabled)</Step>
+  <Step>Review tx details on mobile wallet — verify amount, recipient, and network shown correctly</Step>
+  <Step>Approve on mobile</Step>
+  <Step>Desktop: isPending → isConfirming → isSuccess progression visible → PASS</Step>
+</Steps>
+
+**Test 3: User Rejection on Mobile**
+<Steps>
+  <Step>Trigger a write action on desktop</Step>
+  <Step>On mobile: tap "Reject" instead of "Approve"</Step>
+  <Step>Desktop: error state shown within 5s, no stale loading spinner → PASS</Step>
+</Steps>
+
+**Test 4: Session Reconnect (App Backgrounded)**
+<Steps>
+  <Step>Establish WalletConnect session</Step>
+  <Step>Background the mobile wallet app for 5 minutes</Step>
+  <Step>Trigger a write action on desktop</Step>
+  <Step>Bring mobile app to foreground — signing request should appear (not silently lost)</Step>
+</Steps>
+
+**Test 5: Session Expiry**
+<Steps>
+  <Step>Establish session, note the session TTL (default 7 days for WC v2)</Step>
+  <Step>Disconnect from the mobile wallet app explicitly</Step>
+  <Step>Desktop: disconnected state detected within 10s — address cleared → PASS</Step>
+</Steps>
+
+<SectionTitle>Failure Modes to Test</SectionTitle>
+
+| Failure | Reproduction | Expected App Behaviour |
+|---------|-------------|----------------------|
+| QR code expired | Wait > 5 min before scanning | New QR generated or "Expired — reconnect" message |
+| Relay server timeout | Disable WiFi mid-pairing | Connection error shown, retry button |
+| Mobile wallet killed by OS | Force-close wallet during signing | Desktop shows timeout error after 30s |
+| Different chain on mobile | Mobile wallet on Mainnet, dApp on Sepolia | Chain mismatch error on mobile wallet AND on desktop |
+| App goes to background mid-sign | Lock phone after tx prompt appears | Transaction should not silently disappear |
+
+<SectionTitle>Automated WalletConnect Testing (CI Approach)</SectionTitle>
+
+True WalletConnect automation requires either:
+1. A mock relay server that simulates pairing without a real device
+2. Appium + real device farm (BrowserStack, AWS Device Farm)
+
+For most teams, the pragmatic approach is:
+
+```typescript
+// In playwright.config.ts — mark WalletConnect tests as manual
+test.describe('[W3QA-65] WalletConnect — Manual Tests', () => {
+  test.skip(!process.env.WC_REAL_DEVICE, 'Requires real device setup (WC_REAL_DEVICE=1)');
+
+  // Tests run only when manually triggered with WC_REAL_DEVICE=1
+});
+```
+
+Document the manual test protocol in `e2e/tests/walletconnect-manual.md` and run it before
+every release.
+
+<SectionTitle>Bug Types Unique to WalletConnect</SectionTitle>
+
+<Checklist>
+  <CheckItem>Stale QR code not invalidated after first scan — second device can pair with old URI</CheckItem>
+  <CheckItem>Desktop shows "connected" but mobile shows "disconnected" — state desync</CheckItem>
+  <CheckItem>Chain ID in session doesn't update when mobile switches network</CheckItem>
+  <CheckItem>Push notifications not delivered on iOS in background mode</CheckItem>
+  <CheckItem>Session persists after wallet app is uninstalled and reinstalled</CheckItem>
+</Checklist>
+
+<SectionTitle>Done When</SectionTitle>
+
+Your team has:
+- A written manual test protocol for WalletConnect (happy path + all 5 failure modes above)
+- Completed a manual run before each release, documented with pass/fail results
+- An automated smoke test that at least validates the QR code URI is generated correctly

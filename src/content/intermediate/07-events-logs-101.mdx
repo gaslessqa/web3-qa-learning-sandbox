@@ -7,7 +7,7 @@ estimated_minutes: 30
 ---
 
 <Callout type="success">
-  Events/logs are your strongest proof in Web3 QA. If the UI says “success” but no event exists
+  Events/logs are your strongest proof in Web3 QA. If the UI says "success" but no event exists
   on-chain, you have a real bug—or at least a data-sync problem.
 </Callout>
 
@@ -31,20 +31,41 @@ Events are:
 - useful for debugging state sync issues
 
 <SectionTitle>QA Checklist</SectionTitle>
-<Checklist
-  items={[
-    'After a successful tx, you can find the expected event in the tx logs',
-    'Event parameters match the UI outcome (amounts, token addresses, user address)',
-    'If UI shows updated balances/positions, they match on-chain evidence',
-    'If events exist but UI doesn’t update, report as indexing/cache issue',
-    'If UI updates but events are missing, treat as a critical inconsistency',
-  ]}
-/>
+<Checklist>
+  <CheckItem>After a successful tx, you can find the expected event in the tx logs</CheckItem>
+  <CheckItem>Event parameters match the UI outcome (amounts, token addresses, user address)</CheckItem>
+  <CheckItem>If UI shows updated balances/positions, they match on-chain evidence</CheckItem>
+  <CheckItem>If events exist but UI doesn't update, report as indexing/cache issue</CheckItem>
+  <CheckItem>If UI updates but events are missing, treat as a critical inconsistency</CheckItem>
+</Checklist>
 
 <SectionTitle>Manual Steps</SectionTitle>
-<Steps
-  items={[
-    "Perform an on-chain action in the dApp (tx must succeed)",
-    "Copy the tx hash and open it in a block explorer",
-    "Navigate to the Logs/Events section",
-    "Locate the expected event name (e.g., Trans
+<Steps>
+  <Step>Perform an on-chain action in the dApp (tx must succeed)</Step>
+  <Step>Copy the tx hash and open it in a block explorer</Step>
+  <Step>Navigate to the Logs/Events section</Step>
+  <Step>Locate the expected event name (e.g., Transfer, Swap, Deposit)</Step>
+  <Step>Verify event parameters match what the UI reported</Step>
+  <Step>Cross-check on-chain state (balances, positions) with the UI</Step>
+</Steps>
+
+<SectionTitle>How to Read Event Logs</SectionTitle>
+
+- **Topics[0]**: event signature hash (identifies the event type)
+- **Topics[1..n]**: indexed parameters (addresses, ids)
+- **Data**: non-indexed parameters (amounts, strings)
+- Most explorers decode these automatically if the ABI is verified
+
+<SectionTitle>Evidence to Capture</SectionTitle>
+
+- Explorer screenshot: tx logs tab with event name and decoded params
+- UI screenshot: reported outcome (balance change, success message)
+- Notes on any mismatch between UI and on-chain evidence
+
+<SectionTitle>Done When</SectionTitle>
+
+You can:
+
+- locate and read tx events in a block explorer
+- verify event parameters against UI outcomes
+- identify and report UI/on-chain mismatches with on-chain proof

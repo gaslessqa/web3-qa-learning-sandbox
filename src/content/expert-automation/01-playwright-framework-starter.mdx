@@ -1,0 +1,142 @@
+---
+title: 'Playwright Framework Starter for dApps'
+level: 'expert'
+order: 1
+module: 'expert-automation'
+estimated_minutes: 30
+---
+
+<Callout type="info">
+  Playwright is the best tool available for Web3 UI automation. It supports multi-page contexts
+  (critical for MetaMask popups), has a first-class TypeScript API, and produces detailed traces
+  and HTML reports out of the box.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Bootstrap a Playwright project tailored to a Next.js dApp, with the project structure, config,
+and helpers that make tests stable, readable, and CI-ready.
+
+<SectionTitle>Project Structure</SectionTitle>
+
+```
+e2e/
+├── playwright.config.ts        ← Central config (base URL, projects, reporters)
+├── fixtures/
+│   └── wallet.ts               ← MetaMask fixture (extends test with wallet context)
+├── tests/
+│   ├── navigation.spec.ts      ← Static pages, sidebar, breadcrumbs
+│   ├── responsive.spec.ts      ← Mobile viewport checks
+│   ├── wallet-connect.spec.ts  ← Wallet E2E (MetaMask)
+│   └── api.spec.ts             ← API smoke tests
+├── utils/
+│   └── helpers.ts              ← Shared utilities (waitForTxHash, goToLab, etc.)
+└── reports/                    ← HTML report + JUnit XML output
+```
+
+<SectionTitle>Installation</SectionTitle>
+
+```bash
+# Install Playwright (from project root)
+npm install --save-dev @playwright/test
+
+# Install browser binaries
+npx playwright install chromium firefox
+# For wallet E2E only:
+npx playwright install chrome  # full Chrome with extension support
+```
+
+<SectionTitle>playwright.config.ts — Key Decisions</SectionTitle>
+
+```typescript
+export default defineConfig({
+  testDir: './tests',
+  fullyParallel: true,
+  retries: process.env.CI ? 2 : 0,   // retry on CI only
+  workers: process.env.CI ? 1 : undefined,
+
+  use: {
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000',
+    trace: 'on-first-retry',        // traces for debugging failures
+    screenshot: 'only-on-failure',
+    video: 'on-first-retry',
+  },
+
+  projects: [
+    { name: 'chromium', testMatch: /(?!.*wallet).*\.spec\.ts/ },
+    { name: 'firefox',  testMatch: /(?!.*wallet).*\.spec\.ts/ },
+    { name: 'mobile-chrome', use: { ...devices['Pixel 5'] }, testMatch: /responsive/ },
+    { name: 'wallet-e2e', testMatch: /wallet.*\.spec\.ts/ },
+    { name: 'api-smoke', testMatch: /api\.spec\.ts/ },
+  ],
+
+  // Auto-start Next.js in local runs
+  webServer: {
+    command: 'npm run dev -- --no-turbo',
+    url: 'http://localhost:3000',
+    reuseExistingServer: true,
+  },
+});
+```
+
+**Project separation** is the key design decision. `wallet-e2e` runs only on Chrome (extension
+support) and with `workers: 1` to avoid MetaMask state conflicts. Non-wallet tests run in parallel.
+
+<SectionTitle>Writing Your First Test</SectionTitle>
+
+```typescript
+// e2e/tests/navigation.spec.ts
+import { test, expect } from '@playwright/test';
+
+test('[W3QA-2] home page shows navbar', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('nav')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Labs' })).toBeVisible();
+});
+
+test('[W3QA-3] lab index shows all 4 labs', async ({ page }) => {
+  await page.goto('/labs');
+  await expect(page.getByRole('heading', { name: 'ERC-20 Approve Lab' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Hardhat Counter Lab' })).toBeVisible();
+});
+```
+
+**Conventions:**
+- Tag every test with `[STORY-ID]` for traceability
+- Use `getByRole` and `getByTestId` — not CSS selectors (brittle)
+- One assertion per logical check — not one test with 10 assertions
+
+<SectionTitle>Running Tests</SectionTitle>
+
+```bash
+# From project root — run all non-wallet tests
+npx playwright test --config=e2e/playwright.config.ts
+
+# Run just API smoke
+npx playwright test --project=api-smoke --config=e2e/playwright.config.ts
+
+# Open interactive UI mode
+npx playwright test --ui --config=e2e/playwright.config.ts
+
+# Open last HTML report
+npx playwright show-report e2e/reports/html
+```
+
+<SectionTitle>Add to package.json</SectionTitle>
+
+```json
+{
+  "scripts": {
+    "test:e2e": "playwright test --config=e2e/playwright.config.ts",
+    "test:e2e:ui": "playwright test --ui --config=e2e/playwright.config.ts",
+    "test:e2e:wallet": "playwright test --project=wallet-e2e --config=e2e/playwright.config.ts",
+    "test:e2e:report": "playwright show-report e2e/reports/html"
+  }
+}
+```
+
+<SectionTitle>Done When</SectionTitle>
+
+You have:
+- Playwright installed and `npx playwright test` runs at least 5 tests that pass
+- The HTML report opens and shows timing and screenshots
+- Tests are tagged with story IDs traceable to the backlog

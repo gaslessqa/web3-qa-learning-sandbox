@@ -14,23 +14,19 @@ estimated_minutes: 15
 Connect and disconnect a wallet and validate the most common QA states.
 
 <SectionTitle>QA Checklist</SectionTitle>
-<Checklist
-  items={[
-    'Wallet not installed → show a clear install CTA',
-    'User rejects connection → show “Connection cancelled” (no crash)',
-    'Connected state shows truncated address and current network name',
-    'Disconnect resets UI and clears cached session state',
-    'Refresh restores state if session exists',
-  ]}
-/>
+<Checklist>
+  <CheckItem>Wallet not installed → show a clear install CTA</CheckItem>
+  <CheckItem>User rejects connection → show "Connection cancelled" (no crash)</CheckItem>
+  <CheckItem>Connected state shows truncated address and current network name</CheckItem>
+  <CheckItem>Disconnect resets UI and clears cached session state</CheckItem>
+  <CheckItem>Refresh restores state if session exists</CheckItem>
+</Checklist>
 
 <SectionTitle>Manual Steps</SectionTitle>
-<Steps
-  items={[
-    'Click Connect Wallet',
-    'Approve in MetaMask',
-    'Verify UI shows address + network',
-    'Click Disconnect',
-    'Refresh and verify correct state',
-  ]}
-/>
+<Steps>
+  <Step>Click Connect Wallet</Step>
+  <Step>Approve in MetaMask</Step>
+  <Step>Verify UI shows address + network</Step>
+  <Step>Click Disconnect</Step>
+  <Step>Refresh and verify correct state</Step>
+</Steps>

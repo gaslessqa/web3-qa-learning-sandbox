@@ -1,0 +1,117 @@
+---
+title: 'Test Management Workflow'
+level: 'expert'
+order: 6
+module: 'qa-lead-track'
+estimated_minutes: 20
+---
+
+<Callout type="info">
+  Test management in Web3 projects spans three layers: smart contract tests (Hardhat/Foundry),
+  integration tests (local node), and E2E UI tests (Playwright). A well-structured workflow
+  keeps all three traceable and release-ready.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Design a test management workflow that connects user stories → acceptance criteria → test cases →
+CI results → release sign-off, across all three layers.
+
+<SectionTitle>The Three-Layer Test Inventory</SectionTitle>
+
+```
+Layer 1 — Contract Tests (Hardhat / Foundry)
+  └── hardhat/test/*.ts  or  test/*.t.sol
+  └── Run: npm test (Hardhat) or forge test (Foundry)
+  └── Report: lcov / gas report
+
+Layer 2 — Integration Tests (local node + wagmi)
+  └── tests/integration/*.test.ts
+  └── Run: vitest with a forked Hardhat node
+  └── Report: Vitest HTML report
+
+Layer 3 — E2E Tests (Playwright + Synpress)
+  └── e2e/*.spec.ts
+  └── Run: playwright test
+  └── Report: Playwright HTML + trace files
+```
+
+<SectionTitle>Linking Stories to Tests</SectionTitle>
+
+Every test case must trace back to a user story and AC. Use a tag convention:
+
+```typescript
+// In Playwright test:
+test('[W3QA-21] increment() — happy path', async ({ page, metamask }) => { ... });
+test('[W3QA-21] increment() — user rejects', async ({ page, metamask }) => { ... });
+test('[W3QA-21] increment() — wrong network', async ({ page, metamask }) => { ... });
+
+// In Hardhat test:
+describe('[W3QA-21] Counter.increment()', () => {
+  it('increments count by 1', async () => { ... });
+  it('emits Incremented event', async () => { ... });
+  it('reverts if called by wrong network signer', async () => { ... });
+});
+```
+
+This allows you to pull a report: "which test cases cover W3QA-21?" — critical for regression
+tracing after a release.
+
+<SectionTitle>Jira / Linear Workflow Template</SectionTitle>
+
+```
+Story: [W3QA-21] Write functions + sign transactions
+  ├── Sub-task: Write Hardhat tests for Counter.increment()
+  ├── Sub-task: Write integration test for increment() UI flow
+  ├── Sub-task: Write E2E test (Playwright + MetaMask) for increment()
+  └── Sub-task: QA sign-off — all three layers green on staging
+
+Each sub-task transitions:
+  Todo → In Progress → In Review → Done (test passing in CI)
+```
+
+<SectionTitle>Test Case Fields (Minimal Template)</SectionTitle>
+
+| Field | Example |
+|-------|---------|
+| ID | TC-W3QA-21-001 |
+| Story | W3QA-21 |
+| AC | AC-1 (happy path) |
+| Layer | E2E |
+| Precondition | Connected on Sepolia, balance ≥ 0.01 ETH |
+| Steps | 1. Paste Counter address. 2. Click Increment. 3. Confirm in MetaMask. |
+| Expected | count() = previous + 1, Incremented event in monitor |
+| Automation | `e2e/counter.spec.ts:34` |
+
+<SectionTitle>Regression Cycle</SectionTitle>
+
+<Steps>
+  <Step>On every PR: contract unit tests + linter run automatically in CI (fast, < 2 min)</Step>
+  <Step>On merge to main: integration tests run against Hardhat local in CI</Step>
+  <Step>Before release: full E2E Playwright suite runs against Sepolia staging environment</Step>
+  <Step>Release sign-off: QA Lead reviews CI artefacts (HTML report, trace files) and approves</Step>
+  <Step>Post-deploy: smoke test suite runs against production addresses within 30 min of deploy</Step>
+</Steps>
+
+<SectionTitle>Release Traceability Report</SectionTitle>
+
+Before each release, produce a traceability matrix:
+
+```
+Release v1.3.0
+─────────────────────────────────────────────
+Story       | Layer 1 | Layer 2 | Layer 3 | Status
+W3QA-21     |  ✓ 5/5  |  ✓ 3/3  |  ✓ 3/3  | PASS
+W3QA-22     |  ✓ 3/3  |  ✓ 2/2  |  ✓ 2/2  | PASS
+W3QA-47     |  ✓ 4/4  |  ✓ 3/3  |  ✓ 4/4  | PASS
+W3QA-48     |  — N/A  |  ✗ 1/3  |  ✗ 0/4  | BLOCK
+─────────────────────────────────────────────
+```
+
+If any row shows BLOCK → release is held until resolved.
+
+<SectionTitle>Done When</SectionTitle>
+
+Your team has:
+- A test inventory where every story has at least one test per layer
+- CI pipelines running each layer automatically
+- A release traceability report produced before every release

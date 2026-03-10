@@ -7,7 +7,7 @@ estimated_minutes: 20
 ---
 
 <Callout type="warning">
-  Network mismatch is one of the most common causes of “it works for me” bugs in dApps. Your QA goal
+  Network mismatch is one of the most common causes of "it works for me" bugs in dApps. Your QA goal
   is to make the wrong-network state obvious and the recovery path reliable.
 </Callout>
 
@@ -21,43 +21,39 @@ Detect when the wallet is on the wrong network and validate the full switching a
 - **Switch flow**: The dApp requests the wallet to switch networks (EIP-3326 / `wallet_switchEthereumChain` style).
 
 <SectionTitle>QA Checklist</SectionTitle>
-<Checklist
-  items={[
-    'If user is on the wrong network, show a clear banner/state (do not silently fail)',
-    'Show current network name and expected network name',
-    'Primary CTA: “Switch network” triggers wallet prompt',
-    'If switch succeeds, UI updates immediately (no stale state)',
-    'If switch fails, show actionable error (do not crash)',
-    'If user cancels the wallet prompt, show “Switch cancelled” (no endless loading)',
-    'If network is not added, dApp triggers “add network” flow (or instructs user clearly)',
-    'After switching, retry/refresh data that depends on chain (balances, contract reads)',
-  ]}
-/>
+<Checklist>
+  <CheckItem>If user is on the wrong network, show a clear banner/state (do not silently fail)</CheckItem>
+  <CheckItem>Show current network name and expected network name</CheckItem>
+  <CheckItem>Primary CTA: "Switch network" triggers wallet prompt</CheckItem>
+  <CheckItem>If switch succeeds, UI updates immediately (no stale state)</CheckItem>
+  <CheckItem>If switch fails, show actionable error (do not crash)</CheckItem>
+  <CheckItem>If user cancels the wallet prompt, show "Switch cancelled" (no endless loading)</CheckItem>
+  <CheckItem>If network is not added, dApp triggers "add network" flow (or instructs user clearly)</CheckItem>
+  <CheckItem>After switching, retry/refresh data that depends on chain (balances, contract reads)</CheckItem>
+</Checklist>
 
 <SectionTitle>Manual Steps</SectionTitle>
-<Steps
-  items={[
-    'Connect wallet',
-    'Switch your wallet to a different network than the dApp expects (e.g., from Sepolia to Mainnet or vice versa)',
-    'Verify the dApp shows a wrong-network state (banner / disabled actions)',
-    'Click “Switch network” CTA',
-    'Approve network switch in MetaMask',
-    'Verify the dApp recovers: actions enabled, network label updated, data refreshed',
-  ]}
-/>
+<Steps>
+  <Step>Connect wallet</Step>
+  <Step>Switch your wallet to a different network than the dApp expects (e.g., from Sepolia to Mainnet or vice versa)</Step>
+  <Step>Verify the dApp shows a wrong-network state (banner / disabled actions)</Step>
+  <Step>Click "Switch network" CTA</Step>
+  <Step>Approve network switch in MetaMask</Step>
+  <Step>Verify the dApp recovers: actions enabled, network label updated, data refreshed</Step>
+</Steps>
 
 <SectionTitle>Edge Cases</SectionTitle>
 
-- Wallet doesn’t support programmatic switching (or blocks the request)
+- Wallet doesn't support programmatic switching (or blocks the request)
 - Network not added to wallet (requires add-network flow)
-- Switching succeeds but dApp data doesn’t refresh (stale reads)
-- User has multiple tabs open: switching in one tab should update the other tab’s UI
+- Switching succeeds but dApp data doesn't refresh (stale reads)
+- User has multiple tabs open: switching in one tab should update the other tab's UI
 - Very slow RPC: switching appears successful but reads lag
 
 <SectionTitle>Evidence to Capture</SectionTitle>
 
 - Screenshot: wrong-network banner/state
-- Screenshot: MetaMask “Switch network” prompt
+- Screenshot: MetaMask "Switch network" prompt
 - Screenshot: post-switch state with correct network name
 - Optional: console logs showing chainId before/after switch
 

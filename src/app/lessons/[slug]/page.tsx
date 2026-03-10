@@ -24,17 +24,15 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
     console.error('Lesson fetch error:', lessonError);
 
     return (
-      <main className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Lesson Not Found</h1>
-          <p className="text-gray-400 text-sm max-w-lg">
-            Check the server terminal for the Supabase error details.
-          </p>
-          <Link href="/dashboard" className="text-blue-400 hover:text-blue-300">
-            Back to Dashboard
-          </Link>
-        </div>
-      </main>
+      <div className="py-20 text-center">
+        <h1 className="text-2xl font-bold text-white mb-4">Lesson Not Found</h1>
+        <p className="text-gray-400 text-sm max-w-lg mx-auto mb-4">
+          Check the server terminal for the Supabase error details.
+        </p>
+        <Link href="/dashboard" className="text-blue-400 hover:text-blue-300">
+          Back to Dashboard
+        </Link>
+      </div>
     );
   }
 
@@ -71,26 +69,22 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
   const displayTitle = mdx?.frontmatter.title ?? lesson.title;
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white">
+    <div>
       {/* Breadcrumb */}
-      <div className="bg-gray-800/50 border-b border-gray-700">
-        <div className="container mx-auto px-4 py-3">
-          <nav className="text-sm text-gray-400">
-            <Link href="/dashboard" className="hover:text-white">
-              Dashboard
-            </Link>
-            <span className="mx-2">/</span>
-            <Link href={`/modules/${module.slug}`} className="hover:text-white">
-              {module.title}
-            </Link>
-            <span className="mx-2">/</span>
-            <span className="text-white">{displayTitle}</span>
-          </nav>
-        </div>
-      </div>
+      <nav className="text-sm text-gray-400 mb-6 flex items-center gap-1.5">
+        <Link href="/dashboard" className="hover:text-white transition">
+          Dashboard
+        </Link>
+        <span>/</span>
+        <Link href={`/modules/${module.slug}`} className="hover:text-white transition">
+          {module.title}
+        </Link>
+        <span>/</span>
+        <span className="text-white">{displayTitle}</span>
+      </nav>
 
       {/* Lesson Content */}
-      <div className="container mx-auto px-4 py-10 max-w-5xl">
+      <div>
         <div className="bg-gray-800 rounded-2xl p-10 mb-10 shadow-lg shadow-black/20 border border-gray-700/60">
           <article
             className="prose prose-invert prose-lg max-w-none space-y-4
@@ -102,7 +96,7 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
               prose-ul:my-4 prose-ol:my-4 prose-li:my-1
               prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline
               prose-strong:text-white
-              prose-code:bg-gray-700 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-green-400 prose-code:before:content-none prose-code:after:content-none
+              prose-code:bg-gray-700 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-green-400 prose-code:before:content-none prose-code:after:content-none
               prose-pre:bg-gray-900 prose-pre:border prose-pre:border-gray-700 prose-pre:rounded-xl
               prose-blockquote:border-l-blue-500 prose-blockquote:bg-gray-700/50 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:rounded-r
               prose-table:border-collapse
@@ -148,6 +142,6 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
 
         <LessonComplete lessonId={lesson.id} initialCompleted={initialCompleted} />
       </div>
-    </main>
+    </div>
   );
 }

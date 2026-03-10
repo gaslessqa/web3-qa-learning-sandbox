@@ -1,0 +1,104 @@
+---
+title: 'Edge Cases & Error Paths in Web3'
+level: 'intermediate'
+order: 9
+module: 'tx-lifecycle-reverts'
+estimated_minutes: 25
+---
+
+<Callout type="warning">
+  Edge cases in Web3 are more dangerous than in traditional apps — some of them can result in
+  users losing funds or locking their tokens permanently. Every error path needs explicit coverage.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Catalogue the most important edge cases in wallet integration, transactions, and smart contracts —
+and know exactly what to test for each.
+
+<SectionTitle>Edge Case Categories</SectionTitle>
+
+Web3 edge cases fall into four categories:
+
+1. **Wallet / Session** — connection state gone wrong
+2. **Transaction** — signing, submission, and confirmation failures
+3. **Smart Contract** — revert reasons, access control, arithmetic
+4. **Data / Encoding** — decimals, addresses, overflow
+
+<SectionTitle>Wallet & Session Edge Cases</SectionTitle>
+
+| Edge Case | How to Reproduce | Expected Behaviour |
+|-----------|-----------------|-------------------|
+| Lock wallet mid-session | Lock MetaMask while app open | App detects disconnect, prompts reconnect |
+| Switch account in MetaMask | Change active account mid-session | Address updates immediately, pending tx cleared |
+| Remove network from MetaMask | Delete Sepolia while on Sepolia | App detects wrong/unknown chainId, shows warning |
+| Browser tab sleep | Leave tab idle 30 min (mobile) | Wallet state restored on wake, no stale UI |
+| Two tabs same dApp | Open same URL in two tabs | Both tabs reflect consistent state |
+
+<SectionTitle>Transaction Edge Cases</SectionTitle>
+
+<Checklist>
+  <CheckItem>**Nonce collision** — submit two txs rapidly; second one may get stuck. UI should not show both as pending indefinitely.</CheckItem>
+  <CheckItem>**Tx stuck in mempool** — very low gas price, never confirms. UI should not hang forever; add timeout/timeout messaging.</CheckItem>
+  <CheckItem>**Replace-by-fee** (RBF) — user speeds up or cancels tx in MetaMask. Hash changes; old hash tracking must handle this.</CheckItem>
+  <CheckItem>**Chain reorganisation** (reorg) — "confirmed" block is dropped. Tx receipt disappears briefly. `isSuccess` must not be treated as permanent.</CheckItem>
+  <CheckItem>**Duplicate submission** — user rapidly clicks a write button. Only one tx should be submitted.</CheckItem>
+</Checklist>
+
+<SectionTitle>Smart Contract Revert Edge Cases</SectionTitle>
+
+```solidity
+// Common revert patterns your UI must handle:
+
+// 1. Custom error (Solidity ≥ 0.8.4)
+error NotOwner();
+revert NotOwner();
+// → error.name includes "NotOwner" in viem error
+
+// 2. Require with message
+require(amount > 0, "Amount must be positive");
+// → ContractFunctionRevertedError with reason "Amount must be positive"
+
+// 3. Panic codes (arithmetic)
+// → overflow, underflow, division by zero
+// → error code 0x11, 0x12, 0x01
+
+// 4. Out of gas
+// → No reason string; needs separate detection
+```
+
+**Testing strategy:** for each revert type, assert that the UI shows a human-readable message —
+not `0x08c379a0...` hex or a raw object dump.
+
+<SectionTitle>Encoding & Data Edge Cases</SectionTitle>
+
+<Checklist>
+  <CheckItem>**Decimals mismatch** — token has 6 decimals (USDC), not 18. Display `1000000` raw as `1.00`, not `0.000001`.</CheckItem>
+  <CheckItem>**Zero address** — `0x0000...0000` is valid in ABI but usually a bug. Log a warning if contract returns it.</CheckItem>
+  <CheckItem>**Max uint256** — some ERC-20 approvals use `type(uint256).max` as "unlimited". Display as "Unlimited" not a huge number.</CheckItem>
+  <CheckItem>**ENS names** — user enters `vitalik.eth`. Resolve to address before passing to contract; handle resolution failure.</CheckItem>
+  <CheckItem>**Checksum addresses** — `0xAbCd...` vs `0xabcd...`. Viem handles this, but verify your display normalises casing.</CheckItem>
+</Checklist>
+
+<SectionTitle>Testing These Edge Cases</SectionTitle>
+
+<Steps>
+  <Step>Use Hardhat to write unit tests that trigger each revert condition explicitly with `expect().to.be.revertedWithCustomError`</Step>
+  <Step>In the UI, use the wagmi `writeError` to assert that your error display component renders the correct human-readable string</Step>
+  <Step>For wallet edge cases, use Synpress (Playwright + MetaMask) to automate real wallet interactions in CI</Step>
+  <Step>For RPC failures, use a mock server (msw, nock) to return 429 / 500 responses and assert the UI handles them</Step>
+  <Step>For nonce / reorg scenarios, test on Hardhat local where you control block production</Step>
+</Steps>
+
+<SectionTitle>Priority Matrix for Edge Cases</SectionTitle>
+
+| Priority | Edge Cases |
+|----------|-----------|
+| P0 — Must cover | Access control revert, insufficient funds, user reject |
+| P1 — Cover before release | Nonce collision, out-of-gas, network mismatch mid-tx |
+| P2 — Cover in next sprint | Tx stuck, RBF/speedup, reorg handling |
+| P3 — Nice to have | ENS resolution, max uint256 display, two-tab sync |
+
+<SectionTitle>Done When</SectionTitle>
+
+Your test plan has at least one test case for each P0 and P1 edge case above, with a documented
+expected behaviour and the revert reason / error message the UI must display.

@@ -1,0 +1,96 @@
+---
+title: 'Quality Metrics & KPIs for Web3 QA'
+level: 'expert'
+order: 3
+module: 'qa-lead-track'
+estimated_minutes: 25
+---
+
+<Callout type="info">
+  "You can't manage what you can't measure." Web3 projects add unique dimensions to quality
+  measurement: on-chain defects, wallet compatibility coverage, and RPC reliability sit alongside
+  traditional code coverage and defect escape rate.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Define a metrics framework for Web3 QA that gives your team actionable signals — not vanity numbers.
+
+<SectionTitle>The Metrics Landscape</SectionTitle>
+
+Group your metrics into four categories:
+
+**1. Defect Metrics** — are we finding bugs before users do?
+**2. Coverage Metrics** — are we testing enough of the right things?
+**3. Process Metrics** — is the QA pipeline healthy?
+**4. Web3-Specific Metrics** — chain-aware quality signals
+
+<SectionTitle>Defect Metrics</SectionTitle>
+
+| Metric | Formula | Target |
+|--------|---------|--------|
+| Defect Escape Rate | Bugs found in prod ÷ Total bugs found | < 5% |
+| Bug Fix Cycle Time | Time from bug report to verified fix | < 3 days for P1 |
+| Reopen Rate | Reopened bugs ÷ Total closed bugs | < 10% |
+| P0/P1 Bugs per Release | Count of critical bugs reaching prod | 0 |
+
+<SectionTitle>Coverage Metrics</SectionTitle>
+
+| Metric | Target |
+|--------|--------|
+| Solidity line coverage (Hardhat) | 100% on critical paths |
+| E2E scenario coverage | All happy paths + P0 rejection paths |
+| Wallet compatibility | MetaMask ✓, WalletConnect ✓, Coinbase Wallet ✓ |
+| Network coverage | Mainnet, Sepolia, Hardhat local |
+
+<SectionTitle>Process Metrics</SectionTitle>
+
+<Checklist>
+  <CheckItem>**Test automation rate** — % of regression cases that run without manual effort (target: ≥ 80%)</CheckItem>
+  <CheckItem>**Flaky test rate** — % of CI runs with at least one flaky test failure (target: < 5%)</CheckItem>
+  <CheckItem>**Avg CI pipeline duration** — time from push to green/red signal (target: < 15 min)</CheckItem>
+  <CheckItem>**Mean time to detect (MTTD)** — how long before a broken build is noticed (target: < 30 min)</CheckItem>
+</Checklist>
+
+<SectionTitle>Web3-Specific Metrics</SectionTitle>
+
+These are unique to dApp QA and often overlooked:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  RPC Error Rate        — % of RPC calls returning 4xx/5xx  │
+│  Wallet Rejection Rate — % of wallet prompts user cancels  │
+│  Gas Estimation Drift  — (estimated − actual) / actual      │
+│  Revert Rate           — reverted txs / total submitted txs │
+│  Event Decode Coverage — % of tx receipts with decoded logs │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Why these matter:**
+- High **RPC Error Rate** means your provider is unreliable — affects testability and UX
+- High **Revert Rate** in tests usually means test data setup is broken, not the contract
+- **Gas Estimation Drift** > 20% suggests your simulation conditions differ from production
+
+<SectionTitle>Reporting Cadence</SectionTitle>
+
+<Steps>
+  <Step>**Daily** — CI dashboard: build green/red, flaky test count, any new P0/P1 bugs</Step>
+  <Step>**Per sprint** — defect escape rate, coverage delta, open P2 count vs target</Step>
+  <Step>**Per release** — full release metrics report: coverage, wallet compat, RPC reliability, defect summary</Step>
+  <Step>**Quarterly** — trend analysis: are escape rates improving? Is automation rate growing?</Step>
+</Steps>
+
+<SectionTitle>Anti-Patterns to Avoid</SectionTitle>
+
+<Checklist>
+  <CheckItem>**Code coverage as the only metric** — 100% line coverage with zero meaningful assertions is worthless</CheckItem>
+  <CheckItem>**Measuring test count** — 500 tests that all test the same thing is not better than 50 focused tests</CheckItem>
+  <CheckItem>**Ignoring flaky tests** — a flaky test is a broken signal; treat it as a P2 bug</CheckItem>
+  <CheckItem>**Skipping on-chain verification** — testing UI state without checking actual contract state misses the most important layer</CheckItem>
+</Checklist>
+
+<SectionTitle>Done When</SectionTitle>
+
+Your team has:
+- A dashboard tracking at least 3 defect metrics, 2 coverage metrics, and 2 Web3-specific metrics
+- A sprint review that includes quality metrics as a standing agenda item
+- A documented threshold for each metric that triggers a conversation or action

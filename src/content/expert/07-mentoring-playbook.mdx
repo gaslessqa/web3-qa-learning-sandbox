@@ -1,0 +1,106 @@
+---
+title: 'Mentoring Playbook & Automation Review Checklist'
+level: 'expert'
+order: 7
+module: 'qa-lead-track'
+estimated_minutes: 20
+---
+
+<Callout type="info">
+  Scaling a QA team in Web3 is hard because the domain is narrow, the tooling is young, and flaky
+  tests compound quickly. A mentoring playbook gives junior engineers a structured ramp and keeps
+  automation trustworthy as the team grows.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Build a mentoring structure and PR review checklist so that new QA engineers contribute quality
+automation from day one — and don't introduce instability.
+
+<SectionTitle>30 / 60 / 90 Day Ramp Plan</SectionTitle>
+
+**Day 1–30 — Foundation**
+<Checklist>
+  <CheckItem>Complete beginner track on this platform (wallet, transactions, events)</CheckItem>
+  <CheckItem>Set up Hardhat locally, run existing contract tests, understand coverage report</CheckItem>
+  <CheckItem>Shadow a P1 bug triage end-to-end — watch how an on-chain issue is diagnosed</CheckItem>
+  <CheckItem>Write 3 new Hardhat unit tests for an existing contract function</CheckItem>
+</Checklist>
+
+**Day 31–60 — Integration & Automation**
+<Checklist>
+  <CheckItem>Complete intermediate track (tx lifecycle, events, edge cases)</CheckItem>
+  <CheckItem>Set up Playwright locally, run existing E2E suite, fix one flaky test</CheckItem>
+  <CheckItem>Write a full E2E scenario (happy path + rejection) for one lab feature</CheckItem>
+  <CheckItem>Pair with senior QA on a bug RCA — lead the root-cause investigation</CheckItem>
+</Checklist>
+
+**Day 61–90 — Ownership**
+<Checklist>
+  <CheckItem>Complete expert track (QA strategy, release readiness, this lesson)</CheckItem>
+  <CheckItem>Own one story's full test coverage (Layer 1 + 2 + 3)</CheckItem>
+  <CheckItem>Present the sprint's quality metrics in the sprint review</CheckItem>
+  <CheckItem>Propose one improvement to the test management workflow</CheckItem>
+</Checklist>
+
+<SectionTitle>Automation PR Review Checklist</SectionTitle>
+
+When reviewing a QA PR, check every item:
+
+**Structure & Scope**
+<Checklist>
+  <CheckItem>Test file is in the correct layer directory (`hardhat/test/`, `tests/integration/`, `e2e/`)</CheckItem>
+  <CheckItem>Test ID tag present (e.g. `[W3QA-21]`) — traceable to a story</CheckItem>
+  <CheckItem>Test description is specific: function name + scenario, not "it works"</CheckItem>
+</Checklist>
+
+**Assertions**
+<Checklist>
+  <CheckItem>Happy path: asserts on-chain state, not just UI text</CheckItem>
+  <CheckItem>Events: decoded event args are asserted, not just "event was emitted"</CheckItem>
+  <CheckItem>Revert path: asserts specific revert reason (custom error or message string)</CheckItem>
+  <CheckItem>No `expect(true).toBe(true)` style no-op assertions</CheckItem>
+</Checklist>
+
+**Stability**
+<Checklist>
+  <CheckItem>No `sleep(n)` or `waitForTimeout(n)` — use `waitForSelector` / receipt polling instead</CheckItem>
+  <CheckItem>No hardcoded addresses that differ between envs — use env vars or deploy fixtures</CheckItem>
+  <CheckItem>Test is idempotent — can run in any order and will pass independently</CheckItem>
+  <CheckItem>Fixtures / beforeEach reset state — no shared mutable state between tests</CheckItem>
+</Checklist>
+
+**Web3 Specifics**
+<Checklist>
+  <CheckItem>Chain ID asserted where relevant — test does not silently pass on wrong network</CheckItem>
+  <CheckItem>Tx hash captured and waited on — not just the write call</CheckItem>
+  <CheckItem>Decimal formatting validated — test uses formatted values not raw uint256</CheckItem>
+  <CheckItem>Wallet rejection path covered — test doesn't only cover happy path</CheckItem>
+</Checklist>
+
+<SectionTitle>Handling Flaky Tests</SectionTitle>
+
+A flaky test is a P2 bug — not a "known issue" to ignore. Use this process:
+
+<Steps>
+  <Step>Identify: run the suite 5 times locally, record pass/fail. If it fails 1+/5 → flaky</Step>
+  <Step>Isolate: run the single test in isolation. Still flaky? It's the test, not ordering</Step>
+  <Step>Root cause: is it a timing issue (add proper wait), state leak (fix beforeEach), or env assumption (fix fixture)?</Step>
+  <Step>Fix: replace all `sleep()`s with deterministic waits. Reset shared state. Pin external dependencies.</Step>
+  <Step>Verify: run 10 times locally before marking resolved. Add to CI flakiness report</Step>
+</Steps>
+
+<SectionTitle>Knowledge Sharing Cadence</SectionTitle>
+
+| Frequency | Activity |
+|-----------|---------|
+| Weekly | 30-min QA guild sync — share one finding, one flaky fix, one pattern learned |
+| Per sprint | QA lead reviews metrics and shares with team + stakeholders |
+| Per release | Post-mortem for any escaped P0/P1 — root cause shared with whole team |
+| Quarterly | "QA Playbook" updated — add new patterns, remove stale ones |
+
+<SectionTitle>Done When</SectionTitle>
+
+Your team has:
+- A written 30/60/90 ramp plan for every new QA hire
+- An automation PR checklist that lives in your repository (e.g. `.github/PULL_REQUEST_TEMPLATE.md`)
+- A flaky test process where any test in CI that fails intermittently is treated as a tracked defect

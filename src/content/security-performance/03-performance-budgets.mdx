@@ -1,0 +1,195 @@
+---
+title: 'Performance Budgets for Web3 dApps'
+level: 'expert'
+order: 3
+module: 'security-performance'
+estimated_minutes: 25
+---
+
+<Callout type="info">
+  Web3 dApps are slower than traditional web apps by nature — every read hits an external RPC
+  node, every write waits for block confirmation. Performance budgets set explicit thresholds
+  so latency is a first-class quality requirement, not an afterthought.
+</Callout>
+
+<SectionTitle>Goal</SectionTitle>
+Define, measure, and enforce performance budgets for page loads and Web3 operations — integrated
+into CI so regressions are caught before they reach users.
+
+<SectionTitle>Two Performance Layers</SectionTitle>
+
+Web3 dApps have two distinct performance layers:
+
+**Layer 1 — Page / UI Performance** (standard web metrics)
+- Time to First Byte (TTFB)
+- Largest Contentful Paint (LCP)
+- Time to Interactive (TTI)
+- Bundle size
+
+**Layer 2 — Web3 Operation Latency** (unique to dApps)
+- Time from user action to wallet prompt appearing
+- Time from wallet confirm to UI showing "Confirmed"
+- `eth_call` read latency (RPC round-trip)
+- Time to decode and display transaction events
+
+<SectionTitle>Performance Budget Targets</SectionTitle>
+
+```
+┌────────────────────────────────────────────────────────────┐
+│  PAGE PERFORMANCE BUDGETS                                  │
+│  LCP < 2.5s       (Google "Good" threshold)               │
+│  TTI < 3.5s       (interactive before wallet prompt)      │
+│  Bundle JS < 300KB gzipped                                │
+│  Total page weight < 1MB                                  │
+├────────────────────────────────────────────────────────────┤
+│  WEB3 OPERATION BUDGETS                                    │
+│  Wallet prompt appears < 2s after user action             │
+│  eth_call read returns < 3s (including RPC round-trip)    │
+│  UI reflects confirmed tx < 5s after confirmation         │
+│  Event decode and display < 1s after receipt available    │
+└────────────────────────────────────────────────────────────┘
+```
+
+<SectionTitle>Measuring Page Performance with Playwright</SectionTitle>
+
+```typescript
+// e2e/tests/performance.spec.ts
+import { test, expect } from '@playwright/test';
+
+test('[W3QA-64] labs index LCP < 2500ms', async ({ page }) => {
+  await page.goto('/labs');
+
+  // Measure LCP using PerformanceObserver
+  const lcp = await page.evaluate(() =>
+    new Promise<number>((resolve) => {
+      new PerformanceObserver((list) => {
+        const entries = list.getEntries();
+        const lastEntry = entries[entries.length - 1];
+        resolve(lastEntry.startTime);
+      }).observe({ entryTypes: ['largest-contentful-paint'] });
+
+      // Trigger LCP by scrolling
+      window.scrollTo(0, 0);
+    })
+  );
+
+  expect(lcp).toBeLessThan(2500);
+});
+
+test('[W3QA-64] navigation timing — TTFB < 500ms', async ({ page }) => {
+  await page.goto('/labs');
+
+  const ttfb = await page.evaluate(() => {
+    const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+    return nav.responseStart - nav.requestStart;
+  });
+
+  expect(ttfb).toBeLessThan(500);
+});
+```
+
+<SectionTitle>Measuring Web3 Operation Latency</SectionTitle>
+
+```typescript
+test('[W3QA-64] wallet prompt appears within 2s of button click', async ({ page, context }) => {
+  await page.goto('/labs/erc20-approve');
+  // ... setup: connect wallet, fill inputs ...
+
+  const start = Date.now();
+
+  // Click the write action
+  await page.getByRole('button', { name: /approve/i }).click();
+
+  // Wait for MetaMask popup
+  const mmPopup = await context.waitForEvent('page', {
+    predicate: p => p.url().includes('notification'),
+    timeout: 5_000,
+  });
+
+  const elapsed = Date.now() - start;
+  expect(elapsed).toBeLessThan(2000); // < 2s to wallet prompt
+  await mmPopup.close();
+});
+
+test('[W3QA-64] read call returns within 3s', async ({ page }) => {
+  await page.goto('/labs/erc20-inspector');
+
+  const start = Date.now();
+  await page.fill('[placeholder="0x..."]', '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48');
+  await page.getByRole('button', { name: /load/i }).click();
+
+  // Token name visible → read call completed
+  await expect(page.getByTestId('token-name')).toBeVisible({ timeout: 3_000 });
+
+  const elapsed = Date.now() - start;
+  expect(elapsed).toBeLessThan(3000);
+});
+```
+
+<SectionTitle>Bundle Size Monitoring</SectionTitle>
+
+```bash
+# Analyse Next.js bundle with @next/bundle-analyzer
+npm install --save-dev @next/bundle-analyzer
+
+# In next.config.ts:
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
+export default withBundleAnalyzer(nextConfig);
+
+# Run:
+ANALYZE=true npm run build
+```
+
+Key things to watch in the bundle:
+- `wagmi` + `viem` + `@rainbow-me/rainbowkit` combined: watch for bloat from all chains being imported
+- `shiki` for syntax highlighting: ensure it's server-only (not in client bundle)
+- Verify no private RPC URLs leak into client-side code via `NEXT_PUBLIC_` prefix accidentally
+
+<SectionTitle>CI Performance Gate</SectionTitle>
+
+```yaml
+# .github/workflows/e2e.yml — add performance step
+- name: Run performance budget tests
+  run: npx playwright test --grep="W3QA-64" --project=chromium
+  working-directory: e2e
+
+# Build size check
+- name: Check bundle size
+  run: |
+    npm run build
+    # Fail if any JS chunk > 300KB gzipped
+    node scripts/check-bundle-size.js
+```
+
+```javascript
+// scripts/check-bundle-size.js
+import { readdirSync, statSync } from 'fs';
+import { join } from 'path';
+import { gunzipSync } from 'zlib';
+
+const BUILD_DIR = '.next/static/chunks';
+const MAX_BYTES = 300 * 1024; // 300KB
+
+const files = readdirSync(BUILD_DIR).filter(f => f.endsWith('.js'));
+let exceeded = false;
+
+for (const file of files) {
+  const size = statSync(join(BUILD_DIR, file)).size;
+  if (size > MAX_BYTES) {
+    console.error(`❌ ${file}: ${(size / 1024).toFixed(0)}KB > 300KB limit`);
+    exceeded = true;
+  }
+}
+
+if (exceeded) process.exit(1);
+console.log('✓ All chunks within budget');
+```
+
+<SectionTitle>Done When</SectionTitle>
+
+Your project has:
+- Defined performance budgets for LCP, TTFB, wallet prompt latency, and read call latency
+- At least 3 Playwright tests that enforce these budgets and fail if exceeded
+- Bundle size check in CI that alerts on chunks over the threshold
