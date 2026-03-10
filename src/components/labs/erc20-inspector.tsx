@@ -38,7 +38,7 @@ function ReadResult({
 
 export function Erc20Inspector() {
   const [contractAddress, setContractAddress] = useState<`0x${string}`>(DEFAULT_CONTRACT);
-  const [inputAddress, setInputAddress] = useState(DEFAULT_CONTRACT);
+  const [inputAddress, setInputAddress] = useState<string>(DEFAULT_CONTRACT);
   const [balanceInput, setBalanceInput] = useState('');
   const [queriedBalanceAddr, setQueriedBalanceAddr] = useState<`0x${string}` | undefined>();
 

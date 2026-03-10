@@ -40,9 +40,10 @@ function EventLogViewer({ hash, chainId }: { hash: `0x${string}`; chainId: numbe
     return <p className="text-gray-500 text-xs py-1 animate-pulse">Loading receipt...</p>;
   if (!receipt) return <p className="text-gray-600 text-xs py-1">Pending...</p>;
 
-  let decoded: ReturnType<typeof parseEventLogs> = [];
+  type DecodedLog = { eventName: string; args: Record<string, unknown> };
+  let decoded: DecodedLog[] = [];
   try {
-    decoded = parseEventLogs({ abi: ERC20_EVENTS_ABI, logs: receipt.logs });
+    decoded = parseEventLogs({ abi: ERC20_EVENTS_ABI, logs: receipt.logs }) as DecodedLog[];
   } catch {
     // ignore
   }
