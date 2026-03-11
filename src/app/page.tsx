@@ -242,6 +242,57 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── Free account perks ───────────────────────────────────── */}
+      <section className="border-t border-gray-800">
+        <div className="container mx-auto px-4 py-16 max-w-5xl">
+          <div className="rounded-2xl border border-blue-800/40 bg-gradient-to-b from-blue-900/20 to-gray-900/50 p-8 sm:p-10">
+            <div className="sm:flex sm:items-start sm:gap-10">
+              <div className="mb-6 sm:mb-0 sm:flex-1">
+                <p className="text-xs font-semibold uppercase tracking-widest text-blue-400 mb-2">
+                  Free account
+                </p>
+                <h2 className="text-2xl font-bold mb-3">Why create an account?</h2>
+                <p className="text-gray-400 text-sm leading-relaxed">
+                  All lessons and labs are{' '}
+                  <span className="text-white font-medium">100 % free</span> — no paywall, no credit
+                  card. An account just lets you track your progress so you can pick up exactly
+                  where you left off.
+                </p>
+              </div>
+              <ul className="sm:w-64 space-y-3">
+                {[
+                  ['✓', 'Mark lessons as complete'],
+                  ['✓', 'Personal progress dashboard'],
+                  ['✓', 'Works across devices'],
+                  ['✓', 'No spam, ever'],
+                ].map(([icon, text]) => (
+                  <li key={text} className="flex items-center gap-3 text-sm">
+                    <span className="w-5 h-5 rounded-full bg-blue-900/60 border border-blue-700/60 flex items-center justify-center text-blue-400 text-xs font-bold shrink-0">
+                      {icon}
+                    </span>
+                    <span className="text-gray-300">{text}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                href="/signup"
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-semibold transition"
+              >
+                Create free account
+              </Link>
+              <Link
+                href="/login"
+                className="px-5 py-2.5 border border-gray-600 hover:bg-gray-800 rounded-lg text-sm font-semibold transition"
+              >
+                Sign in
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── Labs ─────────────────────────────────────────────────── */}
       <section className="border-t border-gray-800 bg-gray-900/50">
         <div className="container mx-auto px-4 py-20 max-w-5xl">
