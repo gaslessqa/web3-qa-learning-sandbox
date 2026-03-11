@@ -186,62 +186,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Curriculum ───────────────────────────────────────────── */}
-      <section className="container mx-auto px-4 py-20 max-w-5xl">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-3">Full Curriculum</h2>
-          <p className="text-gray-400">
-            Three tracks — pick up wherever your current skill level is.
-          </p>
-        </div>
-
-        <div className="space-y-6">
-          {TRACKS.map(track => (
-            <div
-              key={track.level}
-              className={`rounded-2xl border ${track.border} bg-gradient-to-b ${track.glow} to-gray-900/50 overflow-hidden`}
-            >
-              {/* track header */}
-              <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-800/60">
-                <span className={`text-xs font-semibold px-3 py-1 rounded-full ${track.badge}`}>
-                  {track.level}
-                </span>
-                <span className="text-sm text-gray-500">
-                  {track.modules.reduce((n, m) => n + m.lessons.length, 0)} lessons across{' '}
-                  {track.modules.length} module{track.modules.length > 1 ? 's' : ''}
-                </span>
-              </div>
-
-              {/* modules grid */}
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-gray-800/30">
-                {track.modules.map(mod => (
-                  <div key={mod.title} className="bg-gray-900/60 px-5 py-4">
-                    <p className="text-sm font-semibold text-white mb-2">{mod.title}</p>
-                    <ul className="space-y-1">
-                      {mod.lessons.map(lesson => (
-                        <li key={lesson} className="flex items-start gap-1.5 text-xs text-gray-500">
-                          <span className="text-gray-700 mt-0.5 shrink-0">→</span>
-                          {lesson}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="text-center mt-8">
-          <Link
-            href="/lessons/connect-disconnect-wallet"
-            className="inline-flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition"
-          >
-            Browse all lessons in the docs →
-          </Link>
-        </div>
-      </section>
-
       {/* ── Free account perks ───────────────────────────────────── */}
       <section className="border-t border-gray-800">
         <div className="container mx-auto px-4 py-16 max-w-5xl">
@@ -290,6 +234,62 @@ export default function HomePage() {
               </Link>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ── Curriculum ───────────────────────────────────────────── */}
+      <section className="border-t border-gray-800 container mx-auto px-4 py-20 max-w-5xl">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold mb-3">Full Curriculum</h2>
+          <p className="text-gray-400">
+            Three tracks — pick up wherever your current skill level is.
+          </p>
+        </div>
+
+        <div className="space-y-6">
+          {TRACKS.map(track => (
+            <div
+              key={track.level}
+              className={`rounded-2xl border ${track.border} bg-gradient-to-b ${track.glow} to-gray-900/50 overflow-hidden`}
+            >
+              {/* track header */}
+              <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-800/60">
+                <span className={`text-xs font-semibold px-3 py-1 rounded-full ${track.badge}`}>
+                  {track.level}
+                </span>
+                <span className="text-sm text-gray-500">
+                  {track.modules.reduce((n, m) => n + m.lessons.length, 0)} lessons across{' '}
+                  {track.modules.length} module{track.modules.length > 1 ? 's' : ''}
+                </span>
+              </div>
+
+              {/* modules grid */}
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-gray-800/30">
+                {track.modules.map(mod => (
+                  <div key={mod.title} className="bg-gray-900/60 px-5 py-4">
+                    <p className="font-semibold text-white mb-2">{mod.title}</p>
+                    <ul className="space-y-1.5">
+                      {mod.lessons.map(lesson => (
+                        <li key={lesson} className="flex items-start gap-1.5 text-sm text-gray-400">
+                          <span className="text-gray-600 mt-0.5 shrink-0">→</span>
+                          {lesson}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="text-center mt-8">
+          <Link
+            href="/lessons/connect-disconnect-wallet"
+            className="inline-flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition"
+          >
+            Browse all lessons in the docs →
+          </Link>
         </div>
       </section>
 
