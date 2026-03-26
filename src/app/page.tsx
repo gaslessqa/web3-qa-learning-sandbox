@@ -122,12 +122,21 @@ const LABS = [
     badge: 'bg-green-700 text-green-100',
     network: 'Sepolia',
   },
+  {
+    slug: 'swap-staking',
+    title: 'Swap & Staking Simulation Lab',
+    description:
+      'Walk through a token swap with slippage + a full stake → earn → unstake lifecycle.',
+    level: 'Intermediate',
+    badge: 'bg-yellow-700 text-yellow-100',
+    network: 'Sepolia',
+  },
 ];
 
 const STATS = [
   { value: '9', label: 'Modules' },
   { value: '31', label: 'Lessons' },
-  { value: '4', label: 'Interactive Labs' },
+  { value: '5', label: 'Interactive Labs' },
   { value: '3', label: 'Skill Levels' },
 ];
 

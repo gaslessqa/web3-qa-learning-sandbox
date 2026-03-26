@@ -5,6 +5,7 @@ import { Erc20ApproveLab } from '@/components/labs/erc20-approve-lab';
 import { Erc20Inspector } from '@/components/labs/erc20-inspector';
 import { HardhatCounterLab } from '@/components/labs/hardhat-counter-lab';
 import { TxLifecycleLab } from '@/components/labs/tx-lifecycle';
+import { SwapStakingLab } from '@/components/labs/swap-staking-lab';
 import { TxMonitorPanel } from '@/components/tx-monitor-panel';
 
 export default async function LabPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -62,6 +63,7 @@ export default async function LabPage({ params }: { params: Promise<{ slug: stri
         {slug === 'erc20-inspector' && <Erc20Inspector />}
         {slug === 'hardhat-counter' && <HardhatCounterLab />}
         {slug === 'tx-lifecycle' && <TxLifecycleLab />}
+        {slug === 'swap-staking' && <SwapStakingLab />}
 
         {/* Session transaction monitor (W3QA-25, W3QA-26, W3QA-27, W3QA-28) */}
         <TxMonitorPanel />

@@ -1,0 +1,16 @@
+{
+  "name": "web3qa-hardhat",
+  "version": "1.0.0",
+  "description": "Practice smart contracts for Web3 QA Learning Hub",
+  "scripts": {
+    "node": "npx hardhat node",
+    "deploy": "npx hardhat run scripts/deploy.ts --network localhost",
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat test",
+    "clean": "npx hardhat clean"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.0"
+  }
+}

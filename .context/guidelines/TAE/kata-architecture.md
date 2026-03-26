@@ -2,9 +2,9 @@
 
 **Komponent Action Test Architecture**
 
-> _"Como un kata en artes marciales, donde cada movimiento se practica repetidamente hasta la perfección, KATA framework convierte las acciones del sistema en bloques reutilizables y precisos."_
+> _"Like a kata in martial arts, where each movement is practiced repeatedly until perfection, the KATA framework converts system actions into reusable and precise blocks."_
 
-**Full Documentation**: See `/docs/kata-test-architecture.md` for complete KATA framework documentation.
+**Full Documentation**: See `docs/methodology/kata-fundamentals.md` for complete KATA framework documentation.
 
 ---
 
@@ -14,7 +14,7 @@ KATA (Komponent Action Test Architecture) is a testing framework that solves com
 
 - **Code Duplication**: Reusable ATCs (Acceptance Test Cases) instead of copy-paste
 - **Maintenance Nightmare**: Changes in one component, not scattered across 100 tests
-- **Business Disconnect**: 1:1 mapping between code and Jira test cases
+- **Business Disconnect**: 1:1 mapping between code and Jira/Xray test cases
 - **No Visibility**: Granular reports showing which ATCs passed/failed, not just tests
 - **Messy Architecture**: Clear layer separation with Dependency Injection
 
@@ -30,15 +30,18 @@ KATA (Komponent Action Test Architecture) is a testing framework that solves com
 | **Runtime**     | Bun (native TC39 Stage 3 decorators)                          |
 | **Test Runner** | Playwright Test (for both API and UI)                         |
 | **Assertions**  | Playwright expect + custom matchers                           |
-| **TMS**         | Xray Cloud (Jira) OR Jira Direct (custom fields)              |
+| **TMS**         | Jira + Xray (Test Management for Jira)                        |
 | **CI/CD**       | GitHub Actions                                                |
 | **Reporting**   | KataReporter (terminal) + Playwright HTML + Allure (optional) |
 
 ### Test ID Format
 
-- Format: `PROJECT-XXX` (e.g., `UPEX-123`, `UPEX-456`)
-- Maps directly to Jira issue IDs
-- Used in `@atc('PROJECT-XXX')` decorators
+- **The ATC ID is the real issue ID from the project's issue tracker** (Jira, Xray, Coda, etc.) — not an invented convention
+- Format: `{PROJECT_KEY}-{NUMBER}` (e.g., `TK-101`, `UPEX-123`, `GX-456`)
+- The project key comes from the issue tracker project (e.g., `TK`, `UPEX`, `GX`)
+- Used in `@atc('{TICKET_ID}')` decorators — e.g., `@atc('TK-101')`
+- Each ATC maps 1:1 to a Test Case ticket in the tracker
+- In documentation examples, `TK-XXX` is a placeholder meaning "replace with the actual ticket ID"
 
 ### Language Convention
 
@@ -52,21 +55,22 @@ KATA (Komponent Action Test Architecture) is a testing framework that solves com
 ```
 ┌─────────────────────────────────────────────────────┐
 │                  Test Files Layer                   │
-│    (test_user_journey.e2e.ts, test_api.test.ts)    │
+│   (processCheckout.test.ts, authenticateUser.test.ts) │
 └────────────────────┬────────────────────────────────┘
-                     │ imports fixture + preconditions
+                     │ imports fixture + steps
                      ▼
 ┌─────────────────────────────────────────────────────┐
 │               Fixture Layer (DI)                    │
 │   TestFixture - Unified Entry Point                 │
 │   ├── api: ApiFixture                               │
-│   └── ui: UiFixture                                 │
+│   ├── ui: UiFixture                                 │
+│   └── steps: StepsFixture                           │
 └────────┬────────────────────────────────────────────┘
          │ instantiates components
          ▼
 ┌─────────────────────────────────────────────────────┐
-│        Preconditions Layer (Optional)               │
-│   (AuthFlows, CheckoutFlows) - Reusable ATC chains  │
+│        Steps Layer (Optional)               │
+│   (AuthSteps, CheckoutSteps) - Reusable ATC chains  │
 │         ← Orchestrates ATCs, NOT an ATC itself      │
 └────────┬────────────────────────────────────────────┘
          │ uses
@@ -97,9 +101,9 @@ KATA (Komponent Action Test Architecture) is a testing framework that solves com
 | **Test Context**        | Global utilities (config, logger, faker, HTTP client)     | `TestContext.ts`                                  |
 | **Base Components**     | Helpers for API or UI (HTTP methods, Playwright wrappers) | `ApiBase.ts`, `UiBase.ts`                         |
 | **Specific Components** | Business-specific logic, contains ATCs                    | `UsersApi.ts`, `LoginPage.ts`                     |
-| **Preconditions**       | Reusable ATC chains for test setup (optional)             | `AuthFlows.ts`, `CheckoutFlows.ts`                |
+| **Steps**               | Reusable ATC chains for test setup (optional)             | `AuthSteps.ts`, `CheckoutSteps.ts`                |
 | **Fixtures**            | Dependency Injection entry point                          | `ApiFixture.ts`, `UiFixture.ts`, `TestFixture.ts` |
-| **Test Files**          | Orchestrate ATCs to validate flows                        | `test_checkout_flow.e2e.ts`                       |
+| **Test Files**          | Orchestrate ATCs to validate steps                        | `test_checkout_flow.e2e.ts`                       |
 
 ---
 
@@ -125,8 +129,8 @@ KATA (Komponent Action Test Architecture) is a testing framework that solves com
 │   │   ├── UiBase.ts               # Layer 2: Minimal base (direct Playwright)
 │   │   └── SignupPage.ts           # Layer 3: SignupPage with ATCs
 │   │
-│   └── /preconditions               # Layer 3.5: Reusable ATC chains (optional)
-│       └── AuthFlows.ts            # Combines ATCs for test setup
+│   └── /steps               # Layer 3.5: Reusable ATC chains (optional)
+│       └── AuthSteps.ts            # Combines ATCs for test setup
 │
 ├── /data                            # Test data files
 │   ├── /fixtures                   # JSON, CSV for parameterization
@@ -143,7 +147,7 @@ KATA (Komponent Action Test Architecture) is a testing framework that solves com
 ├── /utils                           # Helper utilities
 │   ├── decorators.ts               # @atc decorator (TC39 Stage 3 format)
 │   ├── KataReporter.ts             # Custom terminal reporter
-│   └── tmsSync.ts                  # TMS integration
+│   └── jiraSync.ts                  # TMS integration
 │
 ├── globalSetup.ts                   # Global setup
 └── globalTeardown.ts                # Global teardown
@@ -153,7 +157,7 @@ KATA (Komponent Action Test Architecture) is a testing framework that solves com
 ├── /videos
 └── /traces
 │
-/playwright.config.ts                # Playwright configuration (uses @config/variables)
+/playwright.config.ts                # Playwright configuration (uses @variables)
 ```
 
 ### Import Aliases (Mandatory)
@@ -162,8 +166,8 @@ All imports MUST use aliases. No relative imports allowed.
 
 ```typescript
 // ✅ CORRECT
-import { config, env } from '@config/variables';
-import { ApiBase } from '@components/api/ApiBase';
+import { config, env } from '@variables';
+import { ApiBase } from '@api/ApiBase';
 import { atc } from '@utils/decorators';
 
 // ❌ WRONG - No relative imports
@@ -207,7 +211,7 @@ An **ATC** is an automated acceptance test case that represents a **complete tes
 
 3. **No Unnecessary Helpers**: If Playwright does it in one line, don't abstract it.
 
-4. **ATCs Don't Call ATCs**: ATCs are atomic. They should NOT call other ATCs. Use the **Preconditions** module for reusable ATC chains (see `automation-standards.md` section 1.7).
+4. **ATCs Don't Call ATCs**: ATCs are atomic. They should NOT call other ATCs. Use the **Steps** module for reusable ATC chains (see `automation-standards.md` section 1.7).
 
 **Example (API):**
 
@@ -261,35 +265,76 @@ A **Component** encapsulates related functionality of the system under test.
 
 A **Fixture** is the entry point that instantiates all components and makes them accessible.
 
-**Example:**
+> **Deep Dive**: See `/docs/testing/test-architecture/dependency-injection-strategy.md` for complete DI architecture, Playwright lazy loading, and instance flow diagrams.
+
+**Core Pattern: TestContextOptions**
+
+All components receive Playwright drivers via `TestContextOptions`:
 
 ```typescript
-// test_fixture.ts
-export class TestFixture {
+// TestContextOptions interface - the bridge between Playwright and KATA
+interface TestContextOptions {
+  page?: Page; // Optional: API tests don't need it
+  request?: APIRequestContext; // Optional: Some setups don't need it
+  environment?: Environment;
+}
+```
+
+**Fixture Definition (TestFixture.ts):**
+
+```typescript
+export const test = base.extend<{
+  test: TestFixture;
   api: ApiFixture;
   ui: UiFixture;
+}>({
+  // Full fixture: UI + API with shared context
+  test: async ({ page, request }, use) => {
+    const fixture = new TestFixture(page, request);
+    await use(fixture);
+  },
 
-  constructor(page: Page, env: string = 'dev') {
-    this.api = new ApiFixture(env);
-    this.ui = new UiFixture(page, env);
-  }
-}
+  // API-only fixture: NO browser opened (Playwright lazy loading)
+  api: async ({ request }, use) => {
+    const apiFixture = new ApiFixture({ request });
+    await use(apiFixture);
+  },
+
+  // UI fixture: Has both page and request
+  ui: async ({ page, request }, use) => {
+    const uiFixture = new UiFixture({ page, request });
+    await use(uiFixture);
+  },
+});
+```
+
+**Key Principle: Lazy Fixture Initialization**
+
+Playwright only creates fixtures that are actually requested:
+
+```typescript
+// This test NEVER opens a browser
+test('TK-XXX: should execute API test', async ({ api }) => {
+  await api.bookings.getAll(); // Only request context used
+});
+
+// This test opens a browser
+test('TK-XXX: should execute E2E test', async ({ ui }) => {
+  await ui.login.authenticate(user, password); // page context used
+});
 ```
 
 **Usage in tests:**
 
 ```typescript
-test('complete purchase flow', async ({ page }) => {
-  const fixture = new TestFixture(page);
+test('TK-XXX: should complete purchase flow', async ({ test: fixture }) => {
+  // Use API for fast setup (same context as UI)
+  const user = await fixture.api.users.createUserSuccessfully({
+    name: 'John',
+    email: 'john@example.com',
+  });
 
-  // Use API for fast setup
-  const user = await fixture.api.users.createUserSuccessfully(
-    'John',
-    'john@example.com',
-    'pass123'
-  );
-
-  // Use UI for the flow to validate
+  // Use UI for the flow to validate (shares context with API)
   await fixture.ui.login.loginSuccessfully(user.email, 'pass123');
   await fixture.ui.cart.addProductToCart('Laptop');
   const order = await fixture.ui.checkout.completePurchaseSuccessfully();
@@ -348,7 +393,7 @@ test('complete purchase flow', async ({ page }) => {
 
 - Always camelCase
 - Always English
-- **Must be complete test cases (mini-flows), NOT single interactions**
+- **Must be complete test cases (mini-steps), NOT single interactions**
 - Success scenarios: `Successfully` or `WithValidCredentials` suffix
 - Error scenarios: `WithInvalid{X}`, `WithExpired{Y}`, `WithNonExistent{Z}`
 
@@ -356,13 +401,13 @@ test('complete purchase flow', async ({ page }) => {
 
 | Type                 | Pattern              | Example                              |
 | -------------------- | -------------------- | ------------------------------------ |
-| **E2E Test**         | `{feature}.test.ts`  | `signUp.test.ts`, `checkout.test.ts` |
-| **Integration Test** | `{resource}.test.ts` | `auth.test.ts`, `users.test.ts`      |
+| **E2E Test**         | `{verb}{Feature}.test.ts`  | `processCheckout.test.ts`, `createSignup.test.ts` |
+| **Integration Test** | `{verb}{Resource}.test.ts` | `authenticateUser.test.ts`, `importBookings.test.ts` |
 | **Utility Test**     | `{util}.test.ts`     | `decorators.test.ts`                 |
 
 ---
 
-## 7. Trazabilidad (Traceability)
+## 7. Traceability
 
 ### @atc Decorator
 
@@ -370,7 +415,7 @@ The `@atc` decorator connects code with Jira/Xray using **TC39 Stage 3 decorator
 
 ```typescript
 // TC39 Stage 3 format - NOT legacy TypeScript decorators
-@atc('PROJ-API-001')
+@atc('TK-101')
 async signInSuccessfully(payload: SignInPayload): Promise<[APIResponse, AuthResponse, SignInPayload]> {
   const [response, body, sentPayload] = await this.apiPOST<AuthResponse, SignInPayload>(
     '/auth/signin',
@@ -398,23 +443,23 @@ export function atc(testId: string, options: AtcOptions = {}) {
 
 **Benefits:**
 
-- Automatic traceability to Jira test cases
+- Automatic traceability to Jira/Xray test cases
 - Granular reporting (which ATCs passed/failed)
-- Synchronization with TMS (Xray or Jira Direct)
-- Console output: `[ATC-PASS] PROJ-API-001 | signInSuccessfully`
+- Synchronization with TMS (Jira/Xray)
+- Console output: `[ATC-PASS] TK-101 | signInSuccessfully`
 
 ### Test Results Synchronization
 
-After test execution, results are synced to Jira:
+After test execution, results are synced to Jira/Xray:
 
 ```
 Test Execution (Playwright)
     ↓
 Generate JSON Report (atc_results.json)
     ↓
-Sync to TMS via API (Xray or Jira Direct)
+Sync to TMS via API (Xray)
     ↓
-Update Jira Test Cases (PASSED/FAILED)
+Update Xray Test Cases (PASSED/FAILED)
 ```
 
 **Configuration**: See `tms-integration.md` for setup details.
@@ -474,14 +519,14 @@ Update Jira Test Cases (PASSED/FAILED)
 For a complete list of implemented components and their ATCs, see:
 
 - **`component-catalog.md`** - All components with descriptions
-- **`atc-registry.md`** - All ATCs mapped to Jira test cases
+- **`atc-registry.md`** - All ATCs mapped to Jira/Xray test cases
 
 ---
 
 ## 10. References
 
-- **Full KATA Documentation**: `/docs/kata-fundamentals.md`
+- **Full KATA Documentation**: `/docs/testing/test-architecture/kata-fundamentals.md`
+- **Dependency Injection Strategy**: `/docs/testing/test-architecture/dependency-injection-strategy.md`
 - **Automation Standards**: `.context/guidelines/TAE/automation-standards.md`
 - **TMS Integration**: `.context/guidelines/TAE/tms-integration.md`
 - **CI/CD Integration**: `.context/guidelines/TAE/ci-cd-integration.md`
-- **Framework Setup**: `.prompts/kata-framework-setup.md`

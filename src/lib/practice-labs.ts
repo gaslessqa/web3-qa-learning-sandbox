@@ -107,7 +107,12 @@ export const COUNTER_ABI = [
   },
 ] as const satisfies Abi;
 
-export type LabSlug = 'erc20-approve' | 'erc20-inspector' | 'hardhat-counter' | 'tx-lifecycle';
+export type LabSlug =
+  | 'erc20-approve'
+  | 'erc20-inspector'
+  | 'hardhat-counter'
+  | 'tx-lifecycle'
+  | 'swap-staking';
 
 export type LabDefinition = {
   slug: LabSlug;
@@ -179,6 +184,22 @@ export const PRACTICE_LABS: LabDefinition[] = [
       'Send a 0 ETH self-transaction (only gas cost)',
       'Track tx hash, pending state, and block confirmation',
       'Verify the transaction on Etherscan',
+    ],
+  },
+  {
+    slug: 'swap-staking',
+    title: 'Swap & Staking Simulation Lab',
+    description:
+      'Walk through a token swap (approve + execute) and a staking lifecycle (stake → earn → unstake). Real balance reads on Sepolia; swap and stake steps are simulated.',
+    level: 'intermediate',
+    chainId: 11155111,
+    networkName: 'Sepolia',
+    objectives: [
+      'Read live token balance and simulate a swap quote with slippage tolerance',
+      'Approve a router contract via a real on-chain call',
+      'Observe the full swap state machine: pending → confirming → success',
+      'Configure a staking position with lock duration and projected APY',
+      'Walk through the stake → rewards → unstake lifecycle and its QA checklist',
     ],
   },
 ];
