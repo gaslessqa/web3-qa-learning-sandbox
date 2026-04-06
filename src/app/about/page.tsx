@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 
 export const metadata = {
@@ -12,8 +13,8 @@ export default function AboutPage() {
       <div className="container mx-auto px-4 py-16 max-w-2xl">
         {/* Avatar / header */}
         <div className="flex flex-col items-center text-center mb-12">
-          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl font-bold mb-5 ring-4 ring-gray-700">
-            GQ
+          <div className="w-24 h-24 rounded-full mb-5 ring-4 ring-gray-700 overflow-hidden relative">
+            <Image src="/avatar.png" alt="GaslessQA" fill className="object-cover" priority />
           </div>
           <h1 className="text-3xl font-bold mb-1">GaslessQA</h1>
           <p className="text-blue-400 text-sm font-medium tracking-wide uppercase mb-4">
