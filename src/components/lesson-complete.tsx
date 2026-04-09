@@ -21,14 +21,21 @@ export function LessonComplete({
     setIsSaving(true);
 
     const supabase = getClient();
-    const { error } = await supabase.from('progress').upsert({
-      user_id: user.id,
-      lesson_id: lessonId,
-      completed: true,
-      completed_at: new Date().toISOString(),
-    });
+    const { error } = await supabase.from('progress').upsert(
+      {
+        user_id: user.id,
+        lesson_id: lessonId,
+        completed: true,
+        completed_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,lesson_id' }
+    );
 
-    if (!error) setIsCompleted(true);
+    if (error) {
+      console.error('Progress save error:', error.message, error.details, error.hint);
+    } else {
+      setIsCompleted(true);
+    }
     setIsSaving(false);
   };
 
