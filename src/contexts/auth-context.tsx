@@ -4,7 +4,7 @@
 import { getClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/supabase';
 import type { AuthError, User } from '@supabase/supabase-js';
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 
@@ -32,60 +32,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Prevent double initialization in React Strict Mode (dev)
-  const didInitRef = useRef(false);
-
   useEffect(() => {
-    // In dev Strict Mode, effects can run twice. Guard to run only once.
-    if (didInitRef.current) return;
-    didInitRef.current = true;
-
-    let cancelled = false;
     const supabase = getClient();
+    let initialized = false;
 
     async function loadProfile(userId: string) {
-      // Profile is optional; don't block auth if it fails.
       const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-
       return data ?? null;
     }
 
-    async function init() {
-      try {
-        // 1) Read current session
-        const { data, error } = await supabase.auth.getSession();
-        if (error) throw error;
-
-        const sessionUser = data.session?.user ?? null;
-
-        if (!cancelled) setUser(sessionUser);
-
-        // 2) Fetch profile if logged in
-        if (sessionUser) {
-          const p = await loadProfile(sessionUser.id);
-          if (!cancelled) setProfile(p);
-        } else {
-          if (!cancelled) setProfile(null);
-        }
-      } catch (e) {
-        // AbortError is common in dev/HMR due to auth lock cancellation.
-        // Ignore AbortError; log only unexpected errors.
-        if (!cancelled && !isAbortError(e)) {
-          console.error('Error initializing auth:', e);
-        }
-
-        if (!cancelled) {
-          setUser(null);
-          setProfile(null);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    }
-
-    init();
-
-    // 3) Subscribe to auth changes
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const nextUser = session?.user ?? null;
       setUser(nextUser);
@@ -100,10 +55,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null);
       }
+
+      if (!initialized) {
+        initialized = true;
+        setIsLoading(false);
+      }
     });
 
     return () => {
-      cancelled = true;
       sub.subscription.unsubscribe();
     };
   }, []);
