@@ -1,7 +1,7 @@
 'use client';
 
+import { markLessonComplete } from '@/app/actions/progress';
 import { useAuth } from '@/contexts/auth-context';
-import { getClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -21,22 +21,10 @@ export function LessonComplete({
     setIsSaving(true);
 
     try {
-      const supabase = getClient();
-      console.log('Saving progress for user:', user.id, 'lesson:', lessonId);
-      const { error } = await supabase.from('progress').upsert(
-        {
-          user_id: user.id,
-          lesson_id: lessonId,
-          completed: true,
-          completed_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id,lesson_id' }
-      );
-
+      const { error } = await markLessonComplete(lessonId);
       if (error) {
-        console.error('Progress save error:', error.message, error.details, error.hint);
+        console.error('Progress save error:', error);
       } else {
-        console.log('Progress saved successfully');
         setIsCompleted(true);
       }
     } catch (e) {
