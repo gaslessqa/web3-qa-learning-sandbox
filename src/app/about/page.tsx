@@ -46,19 +46,26 @@ export default function AboutPage() {
         <section className="bg-gray-800/60 border border-gray-700 rounded-2xl p-8 mb-8 space-y-4 text-gray-300 leading-relaxed">
           <h2 className="text-lg font-semibold text-white mb-4">About me</h2>
           <p>
-            I&apos;m a QA engineer with a focus on Web3 and blockchain applications. I built this
-            platform to share practical, hands-on knowledge about testing decentralised applications
-            — the kind of content I wish existed when I started.
+            I&apos;m a QA engineer with over 15 years of experience in manual and automated
+            testing, now specialising in Web3 and blockchain quality assurance. I built this
+            platform to share practical, hands-on knowledge about testing decentralised
+            applications — the kind of content I wish existed when I started.
           </p>
           <p>
-            This hub covers everything from beginner wallet testing to advanced Playwright
-            automation, Hardhat contract testing, threat modelling, and QA leadership frameworks —
-            all tailored to the unique challenges of the blockchain space.
+            My background includes large-scale production systems — most notably{' '}
+            <strong className="text-white">Ayoba</strong>, a messaging and content platform with
+            millions of active users. That experience shaped how I think about reliability,
+            scalability, and test coverage at scale.
           </p>
           <p>
-            If you&apos;re looking for a Web3 QA engineer, want to collaborate on open-source
-            tooling, or just have questions about anything on this platform — feel free to reach
-            out.
+            Moving into Web3 meant learning an entirely new failure surface: wallets, gas,
+            reverts, on-chain state, cross-chain behaviour. This hub is my attempt to map that
+            territory — from beginner wallet testing to smart contract QA, threat modelling, and
+            automation frameworks tailored to dApps.
+          </p>
+          <p>
+            If you want to talk Web3 QA, collaborate on tooling, or have questions about anything
+            here — feel free to reach out.
           </p>
         </section>
 
@@ -67,13 +74,15 @@ export default function AboutPage() {
           <h2 className="text-lg font-semibold text-white mb-5">What I work with</h2>
           <div className="grid grid-cols-2 gap-3">
             {[
-              'Smart Contract Testing',
-              'Hardhat / Foundry',
+              'WebdriverIO / Appium / Selenium',
               'Playwright + Synpress',
-              'wagmi / viem',
-              'Solidity',
-              'RPC & Event Testing',
-              'MetaMask & WalletConnect',
+              'Node.js · Jest · Cucumber',
+              'Smart Contract QA (EVM)',
+              'Truffle / Ganache / Hardhat',
+              'Tenderly · Etherscan · Viewblock',
+              'Ethereum · Avalanche · Base · Arbitrum',
+              'RPC · Events · On-chain Verification',
+              'API & Security Testing',
               'CI/CD Pipelines',
             ].map(skill => (
               <div key={skill} className="flex items-center gap-2 text-sm text-gray-300">
@@ -88,8 +97,8 @@ export default function AboutPage() {
         <section className="bg-blue-900/20 border border-blue-700/40 rounded-2xl p-8 text-center">
           <h2 className="text-lg font-semibold text-white mb-2">Open to opportunities</h2>
           <p className="text-gray-400 text-sm mb-5">
-            Interested in Web3 QA roles, freelance testing engagements, or consulting. Let&apos;s
-            talk.
+            Looking for Web3 QA roles where there&apos;s real depth to the problem — smart
+            contracts, cross-chain, security, or automation at scale. Let&apos;s talk.
           </p>
           <div className="flex justify-center gap-3 flex-wrap">
             <a
